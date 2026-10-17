@@ -1,0 +1,19 @@
+# Merge into the actual repository's existing rules; do not overwrite unrelated rules.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+node_modules/
+.private/
+reports/private/
+artifacts/private/
+
+# local tooling
+.mcp-use/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store

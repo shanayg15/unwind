@@ -1,0 +1,106 @@
+{
+  "package": "UNDO selected build handoff",
+  "revision": "execution-2_idea-5",
+  "date": "2026-10-17",
+  "selected_idea": "UNDO",
+  "implementation_status": "NOT_BUILT_BY_THIS_PACKAGE",
+  "goal_characters_excluding_trailing_newline": 1332,
+  "base_acceptance_ids": [
+    "U01",
+    "U02",
+    "U03",
+    "U04",
+    "U05",
+    "U06",
+    "U07",
+    "U08",
+    "U09",
+    "U10",
+    "U11",
+    "U12",
+    "U13",
+    "U14",
+    "U15",
+    "U16",
+    "U17",
+    "U18",
+    "U19",
+    "U20",
+    "U21",
+    "U22",
+    "U23",
+    "U24",
+    "U25",
+    "U26",
+    "U27",
+    "U28",
+    "U29",
+    "U30",
+    "U31",
+    "U32"
+  ],
+  "conditional_voice_ids": [
+    "V01",
+    "V02",
+    "V03",
+    "V04",
+    "V05"
+  ],
+  "files": [
+    {
+      "path": "SELECTED_IDEA.md",
+      "bytes": 1041,
+      "sha256": "18c3a69ab6de6315b2714a042f6af5c6dca9d27e8af9e5beadb7687a5e19966f"
+    },
+    {
+      "path": "README_START_HERE.md",
+      "bytes": 3825,
+      "sha256": "4a7f702ae2340ee7d2f548b5ec0239cb151fa1d6529e11548738441c1b9582ff"
+    },
+    {
+      "path": "UNDO_Agent_Production_Recovery_Idea.md",
+      "bytes": 13281,
+      "sha256": "82169f4b9d37d766d731d8443302d20eccb4deffcd1e52a5fd6c1460185a0a35"
+    },
+    {
+      "path": "UNDO_Execution.md",
+      "bytes": 62213,
+      "sha256": "9a6f729fc41d6542d93e25c2ac7d1c6ccdf30209b949c5550095e308d2fb6352"
+    },
+    {
+      "path": "INKBOX_Channel_Plan.md",
+      "bytes": 8508,
+      "sha256": "482d22fd956afba79d7acbbe85275d8a96a611ab72f3a74a203c1d9ab3ab493b"
+    },
+    {
+      "path": "DEMO_RUNBOOK.md",
+      "bytes": 6613,
+      "sha256": "62be2275771250b0579c174bf70885cfb94ce1a6d1ea77b1346d0f84eacba2e5"
+    },
+    {
+      "path": "SOURCE_NOTES.md",
+      "bytes": 6365,
+      "sha256": "9ff4e2032cc368960b239b55efaae72a8c0887077b1581e6d71ffc0b3b3ff6fc"
+    },
+    {
+      "path": "SETUP_STATUS.template.md",
+      "bytes": 2493,
+      "sha256": "d4bc831609a4aa6d2089decaf5a3d2f0699e6bdb06a24d22f64d77ab1dcdb399"
+    },
+    {
+      "path": ".env.example",
+      "bytes": 1042,
+      "sha256": "e79ab3cc18e2c27d574423226025ca1c167804a459b85381bc73ab919f55af42"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 185,
+      "sha256": "083974019a94eaf69ee56625fd7d76742950b75f6b17dfc256eaed7845abfd69"
+    },
+    {
+      "path": "UNDO_Goal.txt",
+      "bytes": 1333,
+      "sha256": "fd5dd3f8cbac0643a963d84d9357ef2c8cf1ce2e6816dfe6f4057069f0f1f279"
+    }
+  ]
+}
