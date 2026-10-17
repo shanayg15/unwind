@@ -18,25 +18,33 @@ import { UndoError } from "../lib/errors.js";
 import { audit, reserveKey, storeResponse } from "../lib/idempotency.js";
 import { formatMoney, hashOf, newId } from "../lib/util.js";
 
+const ATOMIC = z
+  .string()
+  .max(40)
+  .optional()
+  .describe(
+    "Optional atomic recovery group id. Set it ONLY on changes that would mislead customers if one were later restored without the others (e.g. a bundle price and the copy announcing that bundle). Leave it unset for normal changes; collection/scope labels like premium or clearance are recorded automatically. If any member of a group cannot be restored, the whole group is withheld.",
+  );
+
 export const ProposalChange = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("set_price"),
-    product_id: z.string().max(40),
-    amount_minor: z.number().int().positive().max(10_000_000),
-    group: z.string().max(40).optional(),
+    product_id: z.string().max(40).describe("product_id from undo_capabilities"),
+    amount_minor: z.number().int().positive().max(10_000_000).describe("New price in cents (USD minor units)"),
+    atomic_group: ATOMIC,
   }),
   z.object({
     op: z.literal("set_content"),
-    product_id: z.string().max(40),
-    component_key: z.enum(["promotional_copy", "sizing_info"]),
+    product_id: z.string().max(40).describe("product_id from undo_capabilities"),
+    component_key: z.enum(["promotional_copy", "sizing_info"]).describe("Rollouts may change promotional_copy only; sizing_info is operator-only"),
     value: z.string().min(1).max(2000),
-    group: z.string().max(40).optional(),
+    atomic_group: ATOMIC,
   }),
   z.object({
     op: z.literal("set_slot"),
-    slot_id: z.string().max(40),
+    slot_id: z.string().max(40).describe("slot_id from undo_capabilities"),
     content: SlotContent,
-    group: z.string().max(40).optional(),
+    atomic_group: ATOMIC,
   }),
 ]);
 export type ProposalChange = z.infer<typeof ProposalChange>;
@@ -146,7 +154,7 @@ async function normalize(tx: Tx, storeId: string, policy: StorePolicy, proposal:
       observed_revision: cur.revision,
       observed_value: valueToJson(cur.value),
       scope_labels: labels,
-      group: change.group ?? null,
+      group: change.atomic_group ?? null,
       product_id: cur.productId,
       check,
       discount_pct: discount,
@@ -255,10 +263,10 @@ async function run(p: Principal, rolloutId: string, proposalHash: string, key: s
         goal: recorded.goal,
         changes: recorded.changes.map((c) =>
           c.component.type === "price"
-            ? { op: "set_price" as const, product_id: c.component.id, amount_minor: Number(c.value.amount_minor), group: c.group ?? undefined }
+            ? { op: "set_price" as const, product_id: c.component.id, amount_minor: Number(c.value.amount_minor), atomic_group: c.group ?? undefined }
             : c.component.type === "content"
-              ? { op: "set_content" as const, product_id: c.component.id, component_key: c.component.key as "promotional_copy", value: String(c.value.text), group: c.group ?? undefined }
-              : { op: "set_slot" as const, slot_id: c.component.id, content: SlotContent.parse(c.value.content), group: c.group ?? undefined },
+              ? { op: "set_content" as const, product_id: c.component.id, component_key: c.component.key as "promotional_copy", value: String(c.value.text), atomic_group: c.group ?? undefined }
+              : { op: "set_slot" as const, slot_id: c.component.id, content: SlotContent.parse(c.value.content), atomic_group: c.group ?? undefined },
         ),
       };
       const current = await normalize(tx, p.storeId, policy, reproposal, true);

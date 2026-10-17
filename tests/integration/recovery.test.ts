@@ -234,8 +234,8 @@ describe("UNDO engine on real Postgres (Neon test branch)", () => {
     const proposal: Proposal = {
       goal: "bundle",
       changes: [
-        { op: "set_price", product_id: P("pack"), amount_minor: 7200, group: "pack-bundle" },
-        { op: "set_content", product_id: P("pack"), component_key: "promotional_copy", value: "Bundle: pack 10% off", group: "pack-bundle" },
+        { op: "set_price", product_id: P("pack"), amount_minor: 7200, atomic_group: "pack-bundle" },
+        { op: "set_content", product_id: P("pack"), component_key: "promotional_copy", value: "Bundle: pack 10% off", atomic_group: "pack-bundle" },
       ],
     };
     const ro = await launch(a, proposal);
