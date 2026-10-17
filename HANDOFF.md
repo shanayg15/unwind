@@ -14,5 +14,9 @@ Updated 2026-10-17 15:20 PDT. Read `CLAUDE.md` first, then `spec/UNDO_Execution.
 Commands: `pnpm demo:reset` · `pnpm demo:launch` · `pnpm demo:activity` · `pnpm worker` · `pnpm test:integration` · `pnpm test:mcp`
 (`MCP_PROBE_URL=<deployed>/mcp pnpm test:mcp` for deployed) · `pnpm deploy` (TODO script; currently `npx mcp-use deploy -y`).
 
-Exact next action: live owner text test; then customer email; then Armature cases; then e2e/security tests and rehearsals.
-Known failing/missing: scripts setup-check, e2e, provider-smoke, smoke-deployed, demo-verify, verify-all, eval-agent not written yet.
+Deploys: pushing main auto-deploys through the Manufact GitHub App (`pnpm deploy` pushes, waits for that commit, writes reports/deploy.json).
+Approvals: owner replies "YES <code>" by text (worker code checks it) or uses the optional link page.
+Headless Chromium for `mcp-use screenshot`: started on DevTools port 9333 (profile in the session scratchpad); restart with the Playwright Chromium binary if gone.
+
+Exact next action (16:27): customer email round trip; then offer voice; then Armature runs (user setup in evals/ARMATURE_SETUP.md); then 3 rehearsals + recording + final report.
+Not yet written: scripts/provider-smoke.ts (test:providers).

@@ -1,22 +1,20 @@
 # UNDO progress
 
-Release status: **BUILDING** (updated 2026-10-17 15:20 PDT)
+Release status: **BUILDING** (updated 2026-10-17 16:27 PDT)
 
 ## Gates
-- U-G0 Access: Manufact ✅, Neon ✅, model (local Claude login) ✅, Inkbox identity ✅, receiver subscription ✅, Armature ⏳ (user sign-in + cases)
-- U-G1 Recovery engine: ✅ 18 integration tests on the Neon test branch
-- U-G2 Vertical slice: ✅ engine; ✅ hosted MCP (10/10 probe local + deployed); ✅ real launch agent through hosted MCP; ⏳ live owner withdrawal
-- U-G3 Conversations: ⏳ live owner iMessage + customer email through the worker
-- U-G4 Product integration: ✅ deployed MCP + views bound; ⏳ App rendered in Inspector; ⏳ Armature runs
-- U-G5 Hardening/release: ⏳
+- U-G0 Access: ✅ Manufact, Neon, model (local Claude login), Inkbox identity + receiver subscription. ⏳ Armature (user sign-in + cases)
+- U-G1 Recovery engine: ✅ (integration suite on Neon test branch)
+- U-G2 Vertical slice: ✅ deployed; real launch agent; live owner withdrawal over iMessage → preview/impact → conflict question → owner decision → approval → apply → verify → completion text (reports/runs/live-1-owner-imessage.json)
+- U-G3 Conversations: ✅ owner iMessage round trips (3 delivered); ⏳ customer email round trip; ✅ durable inbox/outbox with leases
+- U-G4 Product integration: ✅ deployed MCP (seven tools), ✅ RecoveryReceipt + plan views render from the deployed server (reports/app-view/), ✅ fresh-agent evals 4/4 on deployed MCP (reports/eval-agent.json); ⏳ Armature runs
+- U-G5 Hardening/release: ✅ unit 9, integration 24, security 15, e2e 11, smoke 11, MCP probe 10; ⏳ three rehearsals, recording, final report
 
-## Acceptance (evidence in tests / reports)
-Passed in integration tests (Neon test branch): U01 U02 U03 U05 U06 U07 U08 U09 U10 U11 U12 U13 U14 U16 U26 U27 U28 U29 U30 (+ DB-level bypass rejection)
-Passed via protocol probe (local + deployed): U32 (seven tools, auth rejection, scoped errors)
-Pending: U04 (agent selection, live) U15 U17 U18 U19 U20 U21 U22 U23 U24 U25 U31; voice V01–V05 not enabled
+## Acceptance
+Evidence-backed so far: U01–U20, U22, U23, U26–U32 (tests + live run + deployed probes). Remaining: U21 (customer email), U24 (Armature), U25 (3 rehearsals). Voice V01–V05: NOT_ENABLED.
 
 ## Active task
-Live owner withdrawal over iMessage → worker → fresh agent → preview/impact/conflict question.
+Waiting on: customer email from the approved test address; Armature workspace setup.
 
 ## Next checkpoint
-Owner text exchange + approval link + apply/verify; then customer email.
+Customer email → offer owner voice (needs approval) → Armature runs → three rehearsals → recording → reports/FINAL_VERIFICATION.md.
