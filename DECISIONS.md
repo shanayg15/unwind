@@ -1,0 +1,16 @@
+# UNDO decisions
+
+| Date (PT) | Decision | Why | Approval |
+|---|---|---|---|
+| 2026-10-17 14:30 | Owner phone channel = Inkbox shared iMessage router, not SMS | Already tested both ways; SMS needs a provisioned number, carrier readiness and START opt-in | User approved |
+| 2026-10-17 14:30 | Test customer = sgaitonde@ucsd.edu (email); owner = user's phone | Consented, user-controlled contacts | User approved |
+| 2026-10-17 14:30 | Agent worker runs locally (Claude Agent SDK, user's Max subscription); receiver/MCP/App deployed on Manufact; DB on Neon free | No model API key; subscription credential must not leave the Mac. Mac must be awake for live demos | User approved |
+| 2026-10-17 14:30 | Pause the Inkbox Claude Code bridge while UNDO owns the identity | Both would answer the same texts | User approved |
+| 2026-10-17 14:30 | Budget $0 new spend; caps 150 live messages, 0 calls, <=40 Armature runs | User approval | User approved |
+| 2026-10-17 14:33 | New free Neon org `undo-hackathon` (user-created) and project `fragrant-lab-49686944` (aws-us-east-1, PG 18) | The only existing Neon org is Vercel-managed and blocks CLI project creation; Supabase would cost $10/mo | User created the org |
+| 2026-10-17 14:40 | Single package at repo root (mcp-use server + views + src/ + worker/) instead of a pnpm multi-app workspace | Manufact builds one project root; one lockfile; less build risk. Spec layout was "suggested" | Engineering decision |
+| 2026-10-17 14:40 | Bearer API tokens (hashed in Postgres, role + store bound) for MCP auth, verified per tool call from `ctx.request` | mcp-use's built-in auth is OAuth with DCR; no IdP set up. Header auth works in Claude Code, Codex, Cursor, Inspector, Armature. Claude.ai/ChatGPT connectors (OAuth-only) are out of scope | Engineering decision |
+| 2026-10-17 14:42 | Versioning + journaling enforced by Postgres triggers (`undo.writer` session setting required for any component write); orders/history/audit immutable at the DB level | Invariants must hold even if an app route forgets them | Engineering decision |
+| 2026-10-17 14:45 | Added a `core` collection product (Canvas Market Tote) outside the campaign | Needed for an unrelated order with no rollout price link (U28) | Engineering decision |
+| 2026-10-17 14:45 | Launch approval and recovery approval = owner confirmation of the exact hash (single-use link delivered by the comms layer, or owner session/credential). Agent tools never receive approval tokens | Prevents agent self-approval (U-I3); text reply supplies intent only | Engineering decision |
+| 2026-10-17 14:45 | Eval store gets a narrow standing grant (`eligible_restorations_only`); demo store has none | Armature tester has no owner to confirm; grant cannot cover owner exceptions | Engineering decision |

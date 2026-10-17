@@ -17,3 +17,7 @@ playwright-report/
 test-results/
 *.log
 .DS_Store
+.pnpm-store/
+.vite/
+*.tsbuildinfo
+.eslintcache
