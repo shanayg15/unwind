@@ -108,7 +108,7 @@ const CASES: Case[] = [
 ];
 
 const wanted = process.argv.slice(2).filter((a) => /^[A-Z]$/.test(a));
-const results = [];
+const results: Array<{ case: string; title: string; fixture_rollout: string; passed: boolean; checks: Array<{ name: string; ok: boolean }>; agent: Record<string, unknown>; final_text: string }> = [];
 try {
   for (const c of CASES.filter((x) => !wanted.length || wanted.includes(x.id))) {
     const { rolloutId } = await evalFixture();
