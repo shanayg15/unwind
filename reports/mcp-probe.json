@@ -54,5 +54,61 @@
         "detail": "{\"error\":{\"code\":\"not_found\",\"message\":\"Rollout not found in this store\",\"detail"
       }
     ]
+  },
+  "deployed": {
+    "url": "https://bold-cloud-77gfl.run.mcp-use.com/mcp",
+    "at": "2026-10-17T22:03:29.402Z",
+    "results": [
+      {
+        "check": "unauthenticated initialize rejected",
+        "pass": true,
+        "detail": "HTTP 401"
+      },
+      {
+        "check": "forged token rejected",
+        "pass": true,
+        "detail": "HTTP 401"
+      },
+      {
+        "check": "initialize",
+        "pass": true,
+        "detail": "undo 0.1.0"
+      },
+      {
+        "check": "exactly seven canonical tools",
+        "pass": true,
+        "detail": "undo_apply,undo_capabilities,undo_execute,undo_history,undo_impact,undo_preview,undo_verify"
+      },
+      {
+        "check": "receipt view bound to preview/verify",
+        "pass": true,
+        "detail": "undo_preview,undo_verify"
+      },
+      {
+        "check": "undo_capabilities structuredContent",
+        "pass": true,
+        "detail": "role=agent targets=8"
+      },
+      {
+        "check": "capabilities result bounded",
+        "pass": true,
+        "detail": "7219 bytes"
+      },
+      {
+        "check": "undo_history callable",
+        "pass": true,
+        "detail": "0 rollouts"
+      },
+      {
+        "check": "customer cannot read history",
+        "pass": true,
+        "detail": "isError forbidden"
+      },
+      {
+        "check": "stable error code on bad input",
+        "pass": true,
+        "detail": "{\"error\":{\"code\":\"not_found\",\"message\":\"Rollout not found in this store\",\"detail"
+      }
+    ]
   }
 }
