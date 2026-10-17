@@ -1,0 +1,61 @@
+{
+  "at": "2026-10-17T23:16:19.356Z",
+  "base": "https://bold-cloud-77gfl.run.mcp-use.com",
+  "results": [
+    {
+      "check": "storefront label",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "storefront products",
+      "pass": true,
+      "detail": "8 products"
+    },
+    {
+      "check": "approval headline",
+      "pass": true,
+      "detail": "Put 8 changes back?"
+    },
+    {
+      "check": "goes-back section",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "held-back section shows the shoe conflict",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "not-touched lists orders",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "forged POST without CSRF cookie refused",
+      "pass": true,
+      "detail": "HTTP 403"
+    },
+    {
+      "check": "approve -> done page",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "approval recorded for the exact plan",
+      "pass": true,
+      "detail": "owner_link"
+    },
+    {
+      "check": "reused link shows already used",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "unknown token shows a clear error",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}
