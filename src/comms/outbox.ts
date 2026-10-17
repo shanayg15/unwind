@@ -46,9 +46,9 @@ export async function enqueueCaseMessage(
   if (process.env.LIVE_SEND_ENABLED !== "true") throw new UndoError("forbidden", "Live sending is disabled (LIVE_SEND_ENABLED != true)");
   await consumeBudget();
   if (opts.purpose === "request_approval") {
-    const req = await withTx((tx) => createApprovalRequest(tx, c.store_id, "recovery", planRef, c.id, 30));
+    const req = await withTx((tx) => createApprovalRequest(tx, c.store_id, "recovery", planRef, c.id, 30, "imessage"));
     const base = (process.env.APP_BASE_URL ?? "").replace(/\/$/, "");
-    link = `\n\nReview and approve this exact plan (single use, expires in 30 min): ${base}/approve/${req.token}`;
+    link = `\n\nReply YES ${req.code} to approve exactly this plan, or NO ${req.code} to cancel. Expires in 30 min.\nDetails (optional): ${base}/approve/${req.token}`;
   }
   const id = newId("msg");
   const channel = c.role === "owner" ? "imessage" : "email";
@@ -59,7 +59,7 @@ export async function enqueueCaseMessage(
     [id, c.id, c.store_id, dedupeKey, channel, c.principal_id, opts.purpose, text, opts.inReplyTo ?? null, opts.subject ?? null],
   );
   // The transcript stores the agent-visible text only (link token stays in the outbox row).
-  await addCaseEvent(c.id, "outbound", { text: body + (link ? " [approval link attached]" : ""), purpose: opts.purpose, outbox_id: id });
+  await addCaseEvent(c.id, "outbound", { text: body + (link ? " [reply-to-approve code and details link attached by the system]" : ""), purpose: opts.purpose, outbox_id: id });
   return { outbox_id: id, status: "pending", duplicate: false, approval_link_attached: !!link };
 }
 

@@ -87,33 +87,114 @@ export async function overviewPage(storeId: string, mcpUrl: string): Promise<str
   );
 }
 
-export function approvalPage(opts: {
-  kind: string;
+export interface ApprovalItem {
+  title: string;
+  lines: Array<{ what: string; from: string | null; to: string | null; note?: string }>;
+}
+export interface ApprovalModel {
+  kind: "launch" | "recovery";
   store: string;
-  subjectHash: string;
+  headline: string;
+  lede: string;
+  goesBack: ApprovalItem[];
+  stays: ApprovalItem[];
+  heldBack: ApprovalItem[];
+  untouched: string[];
+  planHash: string;
   expiresAt: string;
   usedAt: string | null;
-  rows: Array<{ label: string; from: string | null; to: string | null; status: string }>;
   csrf: string;
   token: string;
-  message?: string;
-}): string {
-  const rows = opts.rows
-    .map((r) => {
-      const cls = r.status === "eligible" || r.status === "will_apply" ? "ok" : r.status.startsWith("kept") ? "warn" : r.status === "conflict" || r.status.startsWith("withheld") ? "bad" : "muted";
-      return `<tr><td>${esc(r.label)}</td><td>${esc(r.from ?? "")}</td><td>${esc(r.to ?? "")}</td><td class="${cls}">${esc(r.status.replaceAll("_", " "))}</td></tr>`;
-    })
-    .join("");
-  const form = opts.usedAt
-    ? `<p class="muted">This link was used at ${esc(opts.usedAt)}. Each link works once.</p>`
-    : `<form method="post" action="/approve/${esc(opts.token)}" style="display:flex;gap:10px;margin-top:16px">
-<input type="hidden" name="csrf" value="${esc(opts.csrf)}"><button class="primary" name="decision" value="approve">Approve this exact ${esc(opts.kind)} plan</button>
-<button name="decision" value="reject">Reject</button></form>`;
-  return layout(
-    "Approve",
-    `<h1>Owner approval: ${esc(opts.kind)}</h1><p class="muted">${esc(opts.store)} · link expires ${esc(opts.expiresAt)}</p>
-${opts.message ? `<div class="banner">${esc(opts.message)}</div>` : ""}
-<table><tr><th>Component</th><th>Current / launch</th><th>After approval</th><th>Plan status</th></tr>${rows}</table>
-<p class="muted" style="margin-top:10px">Plan hash <code>${esc(opts.subjectHash)}</code>. Approval covers only this hash; if the store changes, the agent must preview again and send a new link.</p>${form}`,
+  replyHint: boolean;
+}
+
+const APPROVE_CSS = `
+:root{--paper:#eef1ec;--card:#f8faf7;--ink:#17302a;--muted:#5d6b65;--line:#cbd3cd;--go:#4f7a2e;--go-bg:#dce8d2;--keep:#c99812;--keep-bg:#f6ebc8;--hold:#a33a2b;--hold-bg:#f5dcd6}
+@media (prefers-color-scheme:dark){:root{--paper:#0f1d19;--card:#15261f;--ink:#e5ece7;--muted:#9caba4;--line:#2a3b35;--go:#9bc77a;--go-bg:#1d3324;--keep:#e8c35a;--keep-bg:#3a3117;--hold:#f0a092;--hold-bg:#3d1f1a}}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:17px/1.5 "Atkinson Hyperlegible",ui-sans-serif,system-ui,sans-serif}
+main{max-width:620px;margin:0 auto;padding:28px 18px 140px}
+.eyebrow{font-size:13px;letter-spacing:.04em;color:var(--muted)}
+h1{font-family:"Big Shoulders Display",ui-sans-serif,sans-serif;font-weight:800;font-size:46px;line-height:1;letter-spacing:.005em;margin:10px 0 12px;text-wrap:balance}
+.lede{font-size:18px;margin:0 0 26px;color:var(--ink)}
+section{margin:26px 0 0}
+.sec-head{display:flex;align-items:center;gap:12px;margin:0 0 10px}
+.blaze{flex:none;width:9px;height:24px;border-radius:2px 3px 2px 4px;background:var(--go);box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.blaze.keep{background:var(--keep)}.blaze.hold{background:var(--hold)}.blaze.none{background:transparent;box-shadow:inset 0 0 0 2px var(--muted)}
+.sec-head h2{font-size:15px;font-weight:700;margin:0;letter-spacing:.02em}
+.item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:0 0 10px}
+.item h3{font-size:17px;margin:0 0 6px}
+.line{display:grid;grid-template-columns:96px 1fr;gap:4px 12px;padding:6px 0;border-top:1px dashed var(--line)}
+.line:first-of-type{border-top:0}
+.what{color:var(--muted);font-size:14px;padding-top:2px}
+.from{color:var(--muted);text-decoration:line-through;text-decoration-thickness:1px;font-size:15px}
+.to{font-weight:700}
+.note{grid-column:2;font-size:14px;color:var(--muted)}
+.go .item{border-left:4px solid var(--go)}.keep .item{border-left:4px solid var(--keep)}.hold .item{border-left:4px solid var(--hold)}
+ul.plain{list-style:none;margin:0;padding:0}ul.plain li{padding:8px 0;border-top:1px dashed var(--line)}ul.plain li:first-child{border-top:0}
+.fine{font-size:13px;color:var(--muted);margin-top:22px}
+code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;word-break:break-all}
+.bar{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--paper) 70%,transparent);padding:18px 18px calc(18px + env(safe-area-inset-bottom))}
+.bar form{max-width:620px;margin:0 auto;display:flex;gap:10px}
+button{font:inherit;font-weight:700;border-radius:12px;padding:15px 18px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.primary{flex:1;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+button:focus-visible{outline:3px solid var(--go);outline-offset:2px}
+.done{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;margin-top:20px}
+`;
+
+function approveLayout(title: string, body: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${esc(title)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Big+Shoulders+Display:wght@800&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<style>${APPROVE_CSS}</style></head><body><main>${body}</main></body></html>`;
+}
+
+function itemHtml(it: ApprovalItem): string {
+  return `<div class="item"><h3>${esc(it.title)}</h3>${it.lines
+    .map(
+      (l) =>
+        `<div class="line"><div class="what">${esc(l.what)}</div><div>${l.from && l.from !== l.to ? `<div class="from">${esc(l.from)}</div>` : ""}<div class="to">${esc(l.to ?? "")}</div></div>${l.note ? `<div class="note">${esc(l.note)}</div>` : ""}</div>`,
+    )
+    .join("")}</div>`;
+}
+
+function sectionHtml(cls: string, blaze: string, heading: string, items: ApprovalItem[]): string {
+  if (!items.length) return "";
+  return `<section class="${cls}"><div class="sec-head"><span class="blaze ${blaze}" aria-hidden="true"></span><h2>${esc(heading)}</h2></div>${items.map(itemHtml).join("")}</section>`;
+}
+
+function ptTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", { timeZone: "America/Los_Angeles", hour: "numeric", minute: "2-digit" }) + " PT";
+}
+
+export function approvalPage(m: ApprovalModel): string {
+  const verb = m.kind === "launch" ? "Launch" : "Apply";
+  const body = `<div class="eyebrow">${esc(m.store)} · owner approval</div>
+<h1>${esc(m.headline)}</h1><p class="lede">${esc(m.lede)}</p>
+${sectionHtml("go", "", m.kind === "launch" ? "Will change" : "Goes back to how it was", m.goesBack)}
+${sectionHtml("keep", "keep", "Stays as you decided", m.stays)}
+${sectionHtml("hold", "hold", "Held back (changed after the launch, not overwritten)", m.heldBack)}
+${m.untouched.length ? `<section><div class="sec-head"><span class="blaze none" aria-hidden="true"></span><h2>Not touched</h2></div><div class="item"><ul class="plain">${m.untouched.map((u) => `<li>${esc(u)}</li>`).join("")}</ul></div></section>` : ""}
+<p class="fine">${m.usedAt ? "This link has already been used." : `This link works once and expires at ${esc(ptTime(m.expiresAt))}.`}${m.replyHint ? " You can also approve by replying to the text message." : ""} If the store changes before you approve, your agent will check again and ask you again.<br>Plan <code>${esc(m.planHash.slice(0, 16))}…</code></p>
+${
+  m.usedAt
+    ? ""
+    : `<div class="bar"><form method="post" action="/approve/${esc(m.token)}"><input type="hidden" name="csrf" value="${esc(m.csrf)}">
+<button class="primary" name="decision" value="approve">${verb} this plan</button><button name="decision" value="reject">Don't apply</button></form></div>`
+}`;
+  return approveLayout(`${m.headline} · ${m.store}`, body);
+}
+
+export function approvalDonePage(store: string, approved: boolean, kind: string, detail: string): string {
+  const head = approved ? (kind === "launch" ? "Launch approved" : "Recovery approved") : "Nothing will be applied";
+  return approveLayout(
+    head,
+    `<div class="eyebrow">${esc(store)} · owner approval</div><h1>${esc(head)}</h1>
+<div class="done"><div class="sec-head"><span class="blaze ${approved ? "" : "none"}" aria-hidden="true"></span><h2>${esc(detail)}</h2></div></div>`,
   );
+}
+
+export function approvalErrorPage(message: string): string {
+  return approveLayout("Approval link", `<div class="eyebrow">Owner approval</div><h1>This link can't be used</h1><div class="done"><p style="margin:0">${esc(message)}</p><p class="fine">Reply to your shop agent's text and it will check the store again and send a fresh plan.</p></div>`);
 }

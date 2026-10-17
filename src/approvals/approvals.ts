@@ -2,6 +2,7 @@ import type { Tx } from "../db/pool.js";
 import { withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { audit } from "../lib/idempotency.js";
+import { randomInt } from "node:crypto";
 import { newId, newSecret, sha256 } from "../lib/util.js";
 
 export type ApprovalKind = "launch" | "recovery";
@@ -43,17 +44,62 @@ export async function createApprovalRequest(
   subjectId: string,
   caseId: string | null,
   ttlMinutes = 30,
-): Promise<{ requestId: string; token: string; subjectHash: string; expiresAt: string }> {
+  channel: "imessage" | "link" = "link",
+): Promise<{ requestId: string; token: string; code: string; subjectHash: string; expiresAt: string }> {
   const owner = await storeOwner(tx, storeId);
   const subjectHash = await currentSubjectHash(tx, storeId, kind, subjectId);
   const token = newSecret("apr");
   const requestId = newId("areq");
+  const code = String(randomInt(1000, 10000));
+  // A newer request for the same case supersedes older open ones, so an earlier "YES" cannot approve a newer plan.
+  if (caseId) await tx.query(`update approval_requests set used_at = now() where case_id = $1 and used_at is null`, [caseId]);
   const { rows } = await tx.query(
-    `insert into approval_requests(id, store_id, kind, subject_id, subject_hash, owner_principal_id, token_hash, case_id, expires_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8, now() + make_interval(mins => $9::int)) returning expires_at`,
-    [requestId, storeId, kind, subjectId, subjectHash, owner.id, sha256(token), caseId, ttlMinutes],
+    `insert into approval_requests(id, store_id, kind, subject_id, subject_hash, owner_principal_id, token_hash, case_id, expires_at, code_hash, channel)
+     values ($1,$2,$3,$4,$5,$6,$7,$8, now() + make_interval(mins => $9::int), $10, $11) returning expires_at`,
+    [requestId, storeId, kind, subjectId, subjectHash, owner.id, sha256(token), caseId, ttlMinutes, sha256(`${requestId}:${code}`), channel],
   );
-  return { requestId, token, subjectHash, expiresAt: new Date(rows[0].expires_at).toISOString() };
+  return { requestId, token, code, subjectHash, expiresAt: new Date(rows[0].expires_at).toISOString() };
+}
+
+export const REPLY_PATTERN = /^\s*(yes|y|approve|approved|ok|no|n|reject|cancel)\b[\s,.:#-]*(\d{4})\b/i;
+
+/**
+ * Reply-to-approve. Deterministic code (never the model) checks that the reply came from the store
+ * owner's verified channel in this case, carries the code issued for the CURRENT open request,
+ * and that the plan hash is still live. Wrong codes count toward a lockout.
+ */
+export async function approveViaCode(
+  caseId: string,
+  senderPrincipalId: string,
+  text: string,
+): Promise<{ matched: false } | { matched: true; ok: false; reason: string } | { matched: true; ok: true; decision: "approve" | "reject"; approvalId: string | null; kind: ApprovalKind; subjectId: string }> {
+  const m = REPLY_PATTERN.exec(text);
+  if (!m) return { matched: false };
+  const decision = /^(no|n|reject|cancel)$/i.test(m[1]) ? "reject" : "approve";
+  const code = m[2];
+  return withTx(async (tx) => {
+    const r = (
+      await tx.query(`select * from approval_requests where case_id = $1 and used_at is null order by created_at desc limit 1 for update`, [caseId])
+    ).rows[0];
+    if (!r) return { matched: true as const, ok: false as const, reason: "there is no open approval request for this case (it was used, superseded, or never sent)" };
+    if (r.owner_principal_id !== senderPrincipalId) return { matched: true as const, ok: false as const, reason: "only the store owner can approve" };
+    if (new Date(r.expires_at).getTime() < Date.now()) return { matched: true as const, ok: false as const, reason: "the approval code expired" };
+    if (r.code_hash !== sha256(`${r.id}:${code}`)) {
+      const n = (await tx.query(`update approval_requests set failed_attempts = failed_attempts + 1, used_at = case when failed_attempts + 1 >= 5 then now() else used_at end where id=$1 returning failed_attempts`, [r.id])).rows[0].failed_attempts;
+      await audit(tx, r.store_id, senderPrincipalId, "approval.code_mismatch", { request_id: r.id, failed_attempts: n });
+      return { matched: true as const, ok: false as const, reason: n >= 5 ? "too many wrong codes; a new plan must be requested" : "the code does not match the current plan" };
+    }
+    const liveHash = await currentSubjectHash(tx, r.store_id, r.kind, r.subject_id).catch(() => null);
+    if (liveHash !== r.subject_hash) return { matched: true as const, ok: false as const, reason: "the plan changed or expired after the code was sent" };
+    await tx.query(`update approval_requests set used_at = now() where id = $1`, [r.id]);
+    if (decision === "reject") {
+      await audit(tx, r.store_id, senderPrincipalId, `${r.kind}.rejected`, { subject_id: r.subject_id, request_id: r.id, via: "owner_text_code" });
+      return { matched: true as const, ok: true as const, decision, approvalId: null, kind: r.kind, subjectId: r.subject_id };
+    }
+    const approvalId = await insertApproval(tx, r.store_id, senderPrincipalId, r.kind, r.subject_id, r.subject_hash, "owner_text_code", r.id);
+    if (r.kind === "launch") await tx.query(`update rollouts set state='approved' where id=$1 and state='awaiting_approval'`, [r.subject_id]);
+    return { matched: true as const, ok: true as const, decision, approvalId, kind: r.kind, subjectId: r.subject_id };
+  });
 }
 
 export interface ApprovalRequestView {

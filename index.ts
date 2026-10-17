@@ -15,7 +15,7 @@ import { undoCapabilities, undoHistory } from "./src/recovery/history.js";
 import { undoApply, undoPreview } from "./src/recovery/plan.js";
 import { buildReceipt, Receipt } from "./src/recovery/receipt.js";
 import { undoVerify } from "./src/recovery/verify.js";
-import { approvalPage, layout, overviewPage, storefrontPage } from "./src/web/pages.js";
+import { type ApprovalItem, approvalDonePage, approvalErrorPage, approvalPage, overviewPage, storefrontPage } from "./src/web/pages.js";
 
 const PUBLIC_STORE = process.env.PUBLIC_DEMO_STORE_ID ?? "store_demo";
 const BASE_URL = (process.env.APP_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -313,15 +313,14 @@ server.get("/approve/:token", async (c) => {
   try {
     rateLimit(`ip:${clientIp(c)}`, 60);
     const token = c.req.param("token");
-    if (!/^apr_[A-Za-z0-9_-]{20,60}$/.test(token)) return c.html(layout("Approval", "<h1>Invalid approval link</h1>"), 404);
+    if (!/^apr_[A-Za-z0-9_-]{20,60}$/.test(token)) return c.html(approvalErrorPage("This approval link is not valid."), 404);
     const view = await withTx((tx) => lookupApprovalToken(tx, token));
-    const rows = await approvalRows(view.storeId, view.kind, view.subjectId);
-    const store = (await query(`select name from stores where id=$1`, [view.storeId])).rows[0].name;
     const csrf = newSecret("csrf");
     setCookie(c, "undo_csrf", csrf, { httpOnly: true, sameSite: "Strict", secure: BASE_URL.startsWith("https"), path: "/approve" });
-    return c.html(approvalPage({ kind: view.kind, store, subjectHash: view.subjectHash, expiresAt: view.expiresAt, usedAt: view.usedAt, rows, csrf, token }));
+    const model = await approvalModel(view.storeId, view.kind, view.subjectId);
+    return c.html(approvalPage({ ...model, planHash: view.subjectHash, expiresAt: view.expiresAt, usedAt: view.usedAt, csrf, token, replyHint: view.caseId !== null }));
   } catch (e) {
-    return c.html(layout("Approval", `<h1>Approval link unavailable</h1><p>${isUndoError(e) ? e.message : "error"}</p>`), isUndoError(e) ? (httpStatusFor[e.code] as 400) : 500);
+    return c.html(approvalErrorPage(isUndoError(e) ? e.message : "Something went wrong loading this plan."), isUndoError(e) ? (httpStatusFor[e.code] as 400) : 500);
   }
 });
 
@@ -332,7 +331,7 @@ server.post("/approve/:token", async (c) => {
     const form = await c.req.parseBody();
     const csrf = String(form.csrf ?? "");
     const cookie = getCookie(c, "undo_csrf") ?? "";
-    if (!csrf || !cookie || !safeEqual(csrf, cookie)) return c.html(layout("Approval", "<h1>Request rejected</h1><p>Missing or mismatched form token. Reload the link and try again.</p>"), 403);
+    if (!csrf || !cookie || !safeEqual(csrf, cookie)) return c.html(approvalErrorPage("This form expired. Open the link again and retry."), 403);
     const decision = form.decision === "reject" ? "reject" : "approve";
     const res = await approveViaToken(token, decision);
     if (res.approvalId && res.caseId) {
@@ -342,31 +341,93 @@ server.post("/approve/:token", async (c) => {
         [newId("evt"), `approval:${res.approvalId}`, res.approvalId, JSON.stringify({ approval_id: res.approvalId, kind: res.kind, subject_id: res.subjectId, case_id: res.caseId }), res.caseId],
       );
     }
-    const msg =
+    const store = (await query(`select s.name from approval_requests r join stores s on s.id = r.store_id where r.token_hash = encode(sha256($1::bytea), 'hex')`, [token])).rows[0]?.name ?? "Your store";
+    const detail =
       decision === "reject"
-        ? "Rejected. Nothing will be applied."
+        ? "Declined. Your shop agent will not apply it."
         : res.kind === "recovery"
-          ? "Approved. The agent will apply this exact plan, verify it, and text you the result."
-          : "Approved. The agent can now execute this exact launch.";
-    return c.html(layout("Approval", `<h1>${decision === "reject" ? "Rejected" : "Approved"}</h1><p>${msg}</p><p class="muted">Approval id ${res.approvalId ?? "-"}</p>`));
+          ? "Your shop agent is applying it now and will text you once it has checked the store."
+          : "Your shop agent can now run this exact launch.";
+    return c.html(approvalDonePage(store, decision === "approve", res.kind, detail));
   } catch (e) {
-    return c.html(layout("Approval", `<h1>Not applied</h1><p>${isUndoError(e) ? e.message : "error"}</p>`), isUndoError(e) ? (httpStatusFor[e.code] as 400) : 500);
+    return c.html(approvalErrorPage(isUndoError(e) ? e.message : "Something went wrong; nothing was applied."), isUndoError(e) ? (httpStatusFor[e.code] as 400) : 500);
   }
 });
 
-async function approvalRows(storeId: string, kind: string, subjectId: string) {
+const COMPONENT_LABEL: Record<string, string> = {
+  "price:price": "Price",
+  "content:promotional_copy": "Promo copy",
+  "content:sizing_info": "Sizing",
+  "slot:premium_home": "Tile",
+  "slot:clearance_home": "Tile",
+  "slot:navigation": "Menu",
+};
+const SLOT_TITLE: Record<string, string> = { premium_home: "Homepage premium tile", clearance_home: "Homepage clearance tile", navigation: "Navigation menu" };
+
+function groupItems<T extends { label: string; component: string }>(rows: T[], line: (r: T) => ApprovalItem["lines"][number]): ApprovalItem[] {
+  const map = new Map<string, ApprovalItem>();
+  for (const r of rows) {
+    const [title] = r.label.split(" · ");
+    const name = title === "Slot" ? (SLOT_TITLE[r.component.split(":")[1]] ?? "Store slot") : title;
+    if (!map.has(name)) map.set(name, { title: name, lines: [] });
+    map.get(name)!.lines.push(line(r));
+  }
+  return [...map.values()];
+}
+
+async function approvalModel(storeId: string, kind: "launch" | "recovery", subjectId: string) {
+  const store = (await query(`select name from stores where id=$1`, [storeId])).rows[0].name as string;
   if (kind === "launch") {
-    const ro = (await query(`select proposal from rollouts where id=$1 and store_id=$2`, [subjectId, storeId])).rows[0];
+    const ro = (await query(`select goal, proposal from rollouts where id=$1 and store_id=$2`, [subjectId, storeId])).rows[0];
+    const titles = Object.fromEntries((await query(`select id, title from products where store_id=$1`, [storeId])).rows.map((r) => [r.id, r.title]));
     const fmt = (v: Record<string, unknown>) => ("amount_minor" in v ? `$${(Number(v.amount_minor) / 100).toFixed(2)}` : "text" in v ? String(v.text) : String((v.content as { title?: string })?.title ?? ""));
-    return (ro.proposal.changes as Array<{ component: { type: string; id: string; key: string }; value: Record<string, unknown>; observed_value: Record<string, unknown>; check: string }>).map((c) => ({
-      label: `${c.component.type} ${c.component.key} (${c.component.id.replace(/^prd_|^slot_/, "")})`,
-      from: fmt(c.observed_value),
-      to: fmt(c.value),
-      status: "will_apply",
+    const changes = ro.proposal.changes as Array<{ component: { type: string; id: string; key: string }; value: Record<string, unknown>; observed_value: Record<string, unknown> }>;
+    const rows = changes.map((ch) => ({
+      label: ch.component.type === "slot" ? "Slot" : `${titles[ch.component.id] ?? ch.component.id}`,
+      component: `${ch.component.type}:${ch.component.key}`,
+      from: fmt(ch.observed_value),
+      to: fmt(ch.value),
     }));
+    return {
+      kind,
+      store,
+      headline: `Launch ${changes.length} changes?`,
+      lede: `${String(ro.goal).split(":")[0]}. Every change is recorded so it can be undone later.`,
+      goesBack: groupItems(rows, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: r.from, to: r.to })),
+      stays: [],
+      heldBack: [],
+      untouched: ["Sizing information", "Existing orders"],
+    };
   }
   const receipt = await buildReceipt(storeId, subjectId);
-  return receipt.rows.map((r) => ({ label: r.label, from: r.current, to: r.status === "eligible" ? r.original : r.current, status: r.status }));
+  const back = receipt.rows.filter((r) => r.status === "eligible");
+  const kept = receipt.rows.filter((r) => r.status === "kept_by_new_decision");
+  const held = receipt.rows.filter((r) => r.status === "conflict" || r.status.startsWith("withheld"));
+  const orders = (await query(`select count(*)::int n from orders where store_id=$1`, [storeId])).rows[0].n as number;
+  const keptByProduct = new Map<string, string[]>();
+  for (const r of receipt.preserved) {
+    const [title] = r.label.split(" · ");
+    const name = title === "Slot" ? (SLOT_TITLE[r.component.split(":")[1]] ?? "Store slot") : title;
+    const what = title === "Slot" ? "" : (COMPONENT_LABEL[r.component] ?? r.component).toLowerCase();
+    keptByProduct.set(name, [...(keptByProduct.get(name) ?? []), what].filter(Boolean));
+  }
+  const untouched = [
+    ...[...keptByProduct].map(([name, parts]) => (parts.length ? `${name}: launch ${parts.join(" and ")} ${parts.length > 1 ? "stay" : "stays"}` : `${name} stays as launched`)),
+    ...receipt.independent.filter((r) => r.tags.some((t) => t.startsWith("edited"))).map((r) => `${r.label.split(" · ")[0]} sizing: your team's edit stays`),
+    `${orders} existing order${orders === 1 ? "" : "s"} keep their recorded prices`,
+  ];
+  const n = back.length;
+  const goal = receipt.rollout_goal.split(":")[0];
+  return {
+    kind,
+    store,
+    headline: `Put ${n} change${n === 1 ? "" : "s"} back?`,
+    lede: `From your ${goal.toLowerCase().startsWith("weekend") ? goal.toLowerCase() : `"${goal}"`}. ${kept.length ? `${kept.length} stay${kept.length === 1 ? "s" : ""} as you decided. ` : ""}${held.length ? `${held.length} changed after the launch and won't be overwritten. ` : ""}Nothing else changes.`,
+    goesBack: groupItems(back, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: r.current, to: r.original })),
+    stays: groupItems(kept, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: null, to: r.current, note: "Changed after the launch; kept as you asked" })),
+    heldBack: groupItems(held, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: null, to: r.current, note: "Changed after the launch by someone else" })),
+    untouched,
+  };
 }
 
 // ---------------------------------------------------------------- HTTP: scoped storefront writers

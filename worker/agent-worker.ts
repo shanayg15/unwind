@@ -7,6 +7,7 @@
  */
 import { mkdirSync } from "node:fs";
 import { mintToken } from "../src/auth/principals.js";
+import { approveViaCode } from "../src/approvals/approvals.js";
 import { addCaseEvent, bumpIntent, type CaseRow, caseTranscript, getCase, openCase, updateCase } from "../src/cases/cases.js";
 import { deliverPending, enqueueCaseMessage, type Purpose } from "../src/comms/outbox.js";
 import { closePool, query, withTx } from "../src/db/pool.js";
@@ -25,7 +26,7 @@ Procedure:
 1. Call undo_capabilities, then undo_history to find the rollout the owner means and its recorded change_ids. Select changes by their recorded labels (e.g. "premium" means changes labeled premium). If it is ambiguous, ask one focused question with case_send(purpose "clarification") and stop.
 2. Call undo_preview with exactly the selected change_ids and an intent_note quoting the owner's instruction briefly. Then call undo_impact with the plan_id.
 3. If the preview has conflicts and the owner has not yet said what to do about them, send ONE concise text (purpose "conflict_question") naming each conflict: the product/component, the value your launch recorded, and the current value set by someone else. Ask whether to keep the current value. Say nothing has been changed yet. Then case_update(state "awaiting_owner") and stop.
-4. When the owner's message decides the conflicts, preview again with keep_current_change_ids set to the conflicting change_ids they chose to keep, then case_send(purpose "request_approval", plan_id) with a short summary: what will be restored, what stays as their exception, what is preserved. The system attaches a secure approval link that only the owner can use. case_update(plan_id, state "awaiting_approval") and stop. Never claim anything was applied yet.
+4. When the owner's message decides the conflicts, preview again with keep_current_change_ids set to the conflicting change_ids they chose to keep, then case_send(purpose "request_approval", plan_id) with a short summary: what will be restored, what stays as their exception, what is preserved. The system appends a one-time confirmation code; the owner approves by replying YES plus that code (you never see or repeat the code). case_update(plan_id, state "awaiting_approval") and stop. Never claim anything was applied yet. If there are no conflicts, go straight to this step after step 2.
 5. When you receive an APPROVAL GRANTED system event for the current plan: undo_apply(plan_id, plan_hash, approval_id, fresh idempotency_key), then undo_verify(recovery_id), then case_send(purpose "completion_summary") stating exactly what verify shows was restored, what was kept as the owner's exception, and what was preserved (unselected launch changes such as clearance and navigation, independent sizing edits, existing orders). Then case_update(state "resolved").
 Rules: you can never approve for the owner; their text is intent, the link is authorization. Never contact customers from this case. Plain text only, no markdown, under 600 characters per message. Record rollout_id/plan_id with case_update when you learn them.`;
 
@@ -166,10 +167,23 @@ async function processEvent(ev: InboxRow): Promise<void> {
     const text = truncate(String(m.content ?? "").trim(), 2000);
     if (!text) return finish(ev.id, "rejected", null, "empty message");
     const c = await openCase(STORE, "owner", who.id, "imessage", String(m.conversation_id ?? ""));
-    await addCaseEvent(c.id, "inbound", { text, provider_message_id: m.id, channel: "imessage" });
+    // Reply-to-approve is decided by code, not by the model: verified owner channel + current code + live plan hash.
+    const verdict = await approveViaCode(c.id, who.id, text);
+    await addCaseEvent(c.id, "inbound", { text: verdict.matched ? text.replace(/\d{4}/, "####") : text, provider_message_id: m.id, channel: "imessage" });
+    if (verdict.matched && verdict.ok) {
+      await addCaseEvent(c.id, "approval", { text: verdict.decision === "approve" ? `Owner approved plan ${verdict.subjectId} by text reply with the plan's confirmation code (approval ${verdict.approvalId}).` : `Owner declined plan ${verdict.subjectId} by text reply.` });
+      const fresh = (await getCase(c.id))!;
+      const note =
+        verdict.decision === "approve"
+          ? `APPROVAL GRANTED: approval_id ${verdict.approvalId} for plan_id ${verdict.subjectId}. The owner replied from their verified phone with the confirmation code issued for this exact plan hash. Apply, verify, and report.`
+          : `The owner DECLINED plan ${verdict.subjectId} by text. Do not apply it. Acknowledge briefly, set the case state to resolved, and say nothing was changed.`;
+      const rec = await runTurn(fresh, ev, note, null, null);
+      return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);
+    }
     await bumpIntent(c.id);
     const fresh = (await getCase(c.id))!;
-    const rec = await runTurn(fresh, ev, `Owner text message: "${text}"`, null, null);
+    const extra = verdict.matched ? ` (System check: this looked like an approval reply, but no approval was recorded because ${verdict.reason}. Tell the owner briefly and, if a plan is still wanted, preview again and request approval again.)` : "";
+    const rec = await runTurn(fresh, ev, `Owner text message: "${verdict.matched ? text.replace(/\d{4}/, "####") : text}"${extra}`, null, null);
     return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);
   }
   if (ev.event_type === "message.received") {
