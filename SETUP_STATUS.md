@@ -7,7 +7,7 @@ Repository and existing work: READY. `~/yc_hack_1017` (private github.com/shanay
 Actual current time / submission deadline / stage length: time 2026-10-17 14:19 PDT. Deadline **Sun 2026-10-18 10:00 PT** (Manufact slides; live demos 10:00, judging done 11:00). Stage length: NOT_CHECKED. Submission needs a demo video URL.
 Total and provider budgets: NOT_APPROVED (proposal below)
 Permitted sandbox/store namespace: NOT_APPROVED (proposal: tagged `undo_demo_*` / `undo_eval_*` store namespaces in one new Neon project)
-Approved owner/customer contacts and consent: NOT_APPROVED (proposal: owner = his phone +1925***1746 over iMessage; customer = one of his own email addresses)
+Approved owner/customer contacts and consent: NOT_APPROVED (proposal: owner = his phone +1925***1746 over iMessage; customer = his OpenSwarm address (changed from UCSD at his request))
 Target adapter: controlled Postgres storefront
 Owner channel: iMessage via Inkbox shared router (SMS would need a newly provisioned number; substitution needs approval)
 Customer channel: email
