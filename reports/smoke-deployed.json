@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-17T23:11:35.536Z",
+  "base": "https://bold-cloud-77gfl.run.mcp-use.com",
+  "duration_ms": 5707,
+  "results": [
+    {
+      "check": "health",
+      "pass": true,
+      "detail": "{\"ok\":true,\"service\":\"undo\",\"version\":\"0.1.0\",\"commit\":null}"
+    },
+    {
+      "check": "unauthenticated MCP rejected",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "initialize",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "seven tools",
+      "pass": true,
+      "detail": "undo_capabilities,undo_history,undo_execute,undo_preview,undo_impact,undo_apply,undo_verify"
+    },
+    {
+      "check": "undo_preview App view resource served",
+      "pass": true,
+      "detail": "ui://views/recovery-plan.html 1286 bytes"
+    },
+    {
+      "check": "undo_verify App view resource served",
+      "pass": true,
+      "detail": "ui://views/recovery-receipt.html 1295 bytes"
+    },
+    {
+      "check": "deployed write + readback",
+      "pass": true,
+      "detail": "rev 1 -> 2"
+    },
+    {
+      "check": "stale expected_revision rejected",
+      "pass": true,
+      "detail": "HTTP 409"
+    },
+    {
+      "check": "restore smoke value",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "public storefront",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "check": "production Inspector not exposed",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

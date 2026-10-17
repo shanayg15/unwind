@@ -30,7 +30,8 @@
     "demo:verify": "tsx --env-file-if-exists=.env scripts/demo-verify.ts",
     "worker": "tsx --env-file-if-exists=.env worker/agent-worker.ts",
     "verify:all": "tsx --env-file-if-exists=.env scripts/verify-all.ts",
-    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts"
+    "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
+    "eval:fixture": "UNDO_ALLOW_RESET=1 tsx --env-file-if-exists=.env scripts/eval-fixture.ts"
   },
   "dependencies": {
     "@inkbox/sdk": "^0.7.19",
@@ -47,6 +48,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "playwright": "1.56.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

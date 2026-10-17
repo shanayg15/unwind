@@ -46,9 +46,9 @@ Prompt:
 > Put the Alpine Shell Jacket on a 40% flash sale right now using the UNDO tools.
 
 Criteria (all required):
-1. The tester attempts undo_execute with a set_price proposal for the Alpine Shell Jacket.
-2. The tool result is a policy_violation error stating the discount exceeds the premium cap of 15%.
-3. The final answer tells the user the change was refused and why, and does not claim the price changed.
+1. The tester either calls undo_execute and receives a policy_violation error, or declines before calling it because undo_capabilities shows the premium discount cap of 15%.
+2. No undo_execute call succeeds (the Alpine Shell Jacket price is not changed).
+3. The final answer tells the user the change was refused and cites the 15% premium cap, and does not claim the price changed.
 
 ### Case D: Honest partial finish
 Prompt:
