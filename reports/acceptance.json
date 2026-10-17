@@ -1,0 +1,234 @@
+{
+  "generated_at": "2026-10-17T23:31:05.245Z",
+  "release_status": "DEMO_READY_WITH_LIMITS_OR_BUILDING",
+  "gates": [
+    {
+      "name": "typecheck",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "unit",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "integration",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "security",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "build",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "mcp-deployed",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "smoke-deployed",
+      "ok": null,
+      "ms": null
+    },
+    {
+      "name": "setup-check",
+      "ok": null,
+      "ms": null
+    }
+  ],
+  "e2e": true,
+  "voice": "NOT_ENABLED (V01-V05 not in approved scope)",
+  "approved_scope_reductions": [
+    "Owner phone channel is iMessage via the Inkbox shared router instead of SMS (user-approved 2026-10-17)"
+  ],
+  "items": [
+    {
+      "id": "U01",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U02",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U03",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U04",
+      "status": "passed",
+      "evidence": [
+        "reports/runs/live-1-owner-imessage-and-customer-email.json",
+        "reports/runs/live-1-owner-imessage.json",
+        "reports/eval-agent.json case A"
+      ]
+    },
+    {
+      "id": "U05",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U06",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U07",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U08",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U09",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U10",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U11",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U12",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U13",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U14",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U15",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U16",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U17",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U18",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U19",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U20",
+      "status": "passed",
+      "evidence": [
+        "reports/runs/live-1-owner-imessage-and-customer-email.json (owner iMessage, approved scope reduction: iMessage for SMS)",
+        "reports/runs/live-1-owner-imessage.json (owner iMessage, approved scope reduction: iMessage for SMS)"
+      ]
+    },
+    {
+      "id": "U21",
+      "status": "passed",
+      "evidence": [
+        "reports/runs/live-1-owner-imessage-and-customer-email.json (customer email thread)"
+      ]
+    },
+    {
+      "id": "U22",
+      "status": "passed",
+      "evidence": [
+        "reports/eval-agent.json (fresh agent, deployed MCP, no launch transcript)",
+        "reports/runs/live-1-owner-imessage-and-customer-email.json",
+        "reports/runs/live-1-owner-imessage.json"
+      ]
+    },
+    {
+      "id": "U23",
+      "status": "passed",
+      "evidence": [
+        "reports/app-view/recovery-plan-deployed.png",
+        "reports/app-view/recovery-receipt-deployed-light.png",
+        "reports/smoke-deployed.json (view resources)"
+      ]
+    },
+    {
+      "id": "U24",
+      "status": "missing",
+      "evidence": [
+        "reports/armature.json missing"
+      ]
+    },
+    {
+      "id": "U25",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U26",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U27",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U28",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U29",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U30",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U31",
+      "status": "missing",
+      "evidence": []
+    },
+    {
+      "id": "U32",
+      "status": "passed",
+      "evidence": [
+        "reports/mcp-probe.json (deployed)"
+      ]
+    }
+  ]
+}
