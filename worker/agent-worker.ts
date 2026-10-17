@@ -6,6 +6,7 @@
  *   pnpm worker -- --once  drain once and exit
  */
 import { mkdirSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import { mintToken } from "../src/auth/principals.js";
 import { approveViaCode } from "../src/approvals/approvals.js";
 import { addCaseEvent, bumpIntent, type CaseRow, caseTranscript, getCase, openCase, updateCase } from "../src/cases/cases.js";
@@ -36,7 +37,7 @@ Answer with exact recorded facts from undo_impact: order reference, item, quanti
 Do not promise shipping, delivery, refunds, discounts or compensation. Do not mention other customers, the store owner's conversations, internal plans or recovery details.
 Send exactly one reply with case_send(purpose "order_answer"), then case_update(state "resolved"). Plain text, under 900 characters.`;
 
-interface InboxRow {
+export interface InboxRow {
   id: string;
   provider: string;
   provider_event_id: string;
@@ -46,7 +47,7 @@ interface InboxRow {
   case_id: string | null;
 }
 
-async function claim(): Promise<InboxRow | null> {
+export async function claim(): Promise<InboxRow | null> {
   const { rows } = await query<InboxRow>(
     `update inbox_events set status='processing', attempts = attempts + 1, lease_until = now() + make_interval(mins => $1::int)
       where id = (select id from inbox_events
@@ -148,7 +149,7 @@ async function runTurn(c: CaseRow, eventRow: InboxRow, newEvent: string, inReply
   return rec;
 }
 
-async function processEvent(ev: InboxRow): Promise<void> {
+export async function processEvent(ev: InboxRow): Promise<void> {
   if (ev.provider === "undo" && ev.event_type === "undo.approval_granted") {
     const p = ev.payload;
     const c = p.case_id ? await getCase(String(p.case_id)) : null;
@@ -239,4 +240,4 @@ async function main() {
   await closePool();
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
