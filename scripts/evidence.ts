@@ -37,13 +37,19 @@ try {
             ? { purpose: e.data.purpose, text: e.data.text }
             : e.kind === "inbound"
               ? { channel: e.data.channel, chars: String(e.data.text ?? "").length, note: "participant text kept private" }
-              : { text: e.data.text }),
+              : { text: e.data.text ?? e.data.note }),
       })),
       messages: await outboxEvidence(c.id),
     });
   }
   const inbox = (await query(`select provider, event_type, status, received_at, handled_at, attempts from inbox_events where received_at > coalesce($1, now() - interval '1 day') order by received_at`, [ro?.executed_at ?? null])).rows;
   const owner = (await query(`select phone_e164 from principals where id='pr_owner'`)).rows[0];
+  const voice = (
+    await query(
+      `select id, case_id, plan_id, provider_call_id, status, outcome, hangup_reason, authority_mode, created_at, ended_at, hangup_requested_at from voice_sessions where store_id=$1 and created_at > coalesce($2, now() - interval '1 day') order by created_at`,
+      [STORE, ro?.executed_at ?? null],
+    )
+  ).rows.map((v) => ({ ...v, provider_call_id: v.provider_call_id ? `${String(v.provider_call_id).slice(0, 6)}…${String(v.provider_call_id).slice(-4)}` : null }));
   const out = {
     label,
     captured_at: new Date().toISOString(),
@@ -54,6 +60,7 @@ try {
     recovery: att ? { id: att.id, status: att.status, authorization: String(att.authorization_ref).split(":")[0], at: att.created_at } : null,
     verify,
     cases: timelines,
+    voice,
     inbox_events: inbox.map((i) => ({ provider: i.provider, type: i.event_type, status: i.status, attempts: i.attempts, received_at: i.received_at, handled_at: i.handled_at })),
   };
   mkdirSync("reports/runs", { recursive: true });

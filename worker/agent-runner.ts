@@ -6,6 +6,8 @@ export interface CaseToolHandlers {
   read: () => Promise<Record<string, unknown>>;
   send: (args: { purpose: string; message: string; plan_id?: string }) => Promise<Record<string, unknown>>;
   update: (args: { rollout_id?: string; plan_id?: string; state?: string; summary?: string }) => Promise<Record<string, unknown>>;
+  /** Present only for owner cases when owner voice is enabled. */
+  call?: (args: { plan_id: string; question: string }) => Promise<Record<string, unknown>>;
 }
 
 export interface RunOptions {
@@ -83,9 +85,26 @@ export async function runAgent(opts: RunOptions): Promise<RunRecord> {
           },
           async (args) => textResult(await h.update(args)),
         ),
+        ...(h.call
+          ? [
+              tool(
+                "case_call_owner",
+                "Place ONE short phone call to THIS case's verified owner to ask about the conflicts in plan_id (instead of a conflict_question text). An assistant asks your question on the call; you do not join it. The call result arrives later as a new event and is the owner's proposed decision only, never approval. At most one call per plan; if it fails, send one text instead.",
+                { plan_id: z.string().max(40), question: z.string().min(10).max(450) },
+                async (args) => {
+                  try {
+                    return textResult(await h.call!(args));
+                  } catch (e) {
+                    return { ...textResult({ error: (e as Error).message }), isError: true };
+                  }
+                },
+              ),
+            ]
+          : []),
       ],
     });
     allowed.push("mcp__case__case_read", "mcp__case__case_send", "mcp__case__case_update");
+    if (h.call) allowed.push("mcp__case__case_call_owner");
   }
   const env: Record<string, string | undefined> = { ...process.env };
   delete env.CLAUDE_CODE_OAUTH_TOKEN; // use the local Claude login, never the capped shell token

@@ -24,7 +24,7 @@ export type ReceiveOutcome =
   | { status: 401 | 403 | 413 | 400; error: string }
   | { status: 200; duplicate: boolean; eventId: string; queued: boolean };
 
-const QUEUED_TYPES = new Set(["imessage.received", "message.received"]);
+const QUEUED_TYPES = new Set(["imessage.received", "message.received", "call.ended"]);
 const DELIVERY: Record<string, string> = {
   "imessage.sent": "accepted",
   "imessage.delivered": "delivered",

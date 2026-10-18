@@ -11,6 +11,7 @@ import { mintToken } from "../src/auth/principals.js";
 import { approveViaCode } from "../src/approvals/approvals.js";
 import { addCaseEvent, bumpIntent, type CaseRow, caseTranscript, getCase, openCase, updateCase } from "../src/cases/cases.js";
 import { deliverPending, enqueueCaseMessage, type Purpose } from "../src/comms/outbox.js";
+import { enforceCallLimits, placeOwnerCall, settleCallEnded } from "../src/comms/voice.js";
 import { closePool, query, withTx } from "../src/db/pool.js";
 import { truncate } from "../src/lib/util.js";
 import { runAgent } from "./agent-runner.js";
@@ -26,7 +27,7 @@ Your job is to carry out the owner's latest instruction about earlier recorded s
 Procedure:
 1. Call undo_capabilities, then undo_history to find the rollout the owner means and its recorded change_ids. Select changes by their recorded labels (e.g. "premium" means changes labeled premium). If it is ambiguous, ask one focused question with case_send(purpose "clarification") and stop.
 2. Call undo_preview with exactly the selected change_ids and an intent_note quoting the owner's instruction briefly. Then call undo_impact with the plan_id.
-3. If the preview has conflicts and the owner has not yet said what to do about them, send ONE concise text (purpose "conflict_question") naming each conflict: the product/component, the value your launch recorded, and the current value set by someone else. Ask whether to keep the current value. Say nothing has been changed yet. Then case_update(state "awaiting_owner") and stop.
+3. If the preview has conflicts and the owner has not yet said what to do about them, send ONE concise text (purpose "conflict_question") naming each conflict: the product/component, the value your launch recorded, and the current value set by someone else. Ask whether to keep the current value. Say nothing has been changed yet. Then case_update(state "awaiting_owner") and stop. Exception: if case_call_owner is available AND the owner asked to be called (e.g. "call me"), ask the same question with case_call_owner(plan_id, question) instead of texting it, then stop; the call result arrives later as a new event.
 4. When the owner's message decides the conflicts, preview again with keep_current_change_ids set to the conflicting change_ids they chose to keep, then case_send(purpose "request_approval", plan_id) with a short summary: what will be restored, what stays as their exception, what is preserved. The system appends a one-time confirmation code; the owner approves by replying YES plus that code (you never see or repeat the code). case_update(plan_id, state "awaiting_approval") and stop. Never claim anything was applied yet. If there are no conflicts, go straight to this step after step 2.
 5. When you receive an APPROVAL GRANTED system event for the current plan: undo_apply(plan_id, plan_hash, approval_id, fresh idempotency_key), then undo_verify(recovery_id), then case_send(purpose "completion_summary") stating exactly what verify shows was restored, what was kept as the owner's exception, and what was preserved (unselected launch changes such as clearance and navigation, independent sizing edits, existing orders). Then case_update(state "resolved").
 Rules: you can never approve for the owner; their text is intent, the link is authorization. Never contact customers from this case. Plain text only, no markdown, under 600 characters per message. Record rollout_id/plan_id with case_update when you learn them.`;
@@ -102,6 +103,15 @@ function caseHandlers(c: CaseRow, triggerEventId: string, inReplyTo: string | nu
       const u = await updateCase(c.id, a);
       return { case_id: u.id, state: u.state, rollout_id: u.rollout_id, plan_id: u.plan_id };
     },
+    ...(c.role === "owner" && process.env.OWNER_VOICE_ENABLED === "true"
+      ? {
+          call: async (a: { plan_id: string; question: string }) => {
+            const r = await placeOwnerCall((await getCase(c.id))!, a.plan_id, a.question);
+            await updateCase(c.id, { plan_id: a.plan_id, state: "awaiting_owner" });
+            return r;
+          },
+        }
+      : {}),
   };
 }
 
@@ -158,6 +168,7 @@ export async function processEvent(ev: InboxRow): Promise<void> {
     const rec = await runTurn(c, ev, `APPROVAL GRANTED: approval_id ${p.approval_id} for plan_id ${p.subject_id}. The owner confirmed this exact plan hash through the authenticated single-use link. Apply, verify, and report.`, null, null);
     return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);
   }
+  if (ev.event_type === "call.ended") return handleCallEnded(ev);
   const m = ev.payload?.data?.message;
   if (!m || m.direction !== "inbound") return finish(ev.id, "rejected", null, "not an inbound message");
   if (ev.event_type === "imessage.received") {
@@ -202,7 +213,63 @@ export async function processEvent(ev: InboxRow): Promise<void> {
   return finish(ev.id, "rejected", null, `unsupported event ${ev.event_type}`);
 }
 
+/**
+ * Final owner-call event. Settled once per call (duplicates do nothing). Voicemail, no answer, a call
+ * where the owner never spoke, or a stale plan never decides anything: the owner gets ONE text fallback.
+ * An answered call's transcript is proposed intent only; approval still needs the plan's text code.
+ */
+async function handleCallEnded(ev: InboxRow): Promise<void> {
+  const f = await settleCallEnded(ev.payload);
+  if (!f.session) return finish(ev.id, "rejected", null, "call is not an UNDO owner call");
+  if (f.duplicate) return finish(ev.id, "handled", f.session.case_id, "duplicate call result (already settled)");
+  const c = (await getCase(f.session.case_id))!;
+  if (!f.remote_matches_owner) return finish(ev.id, "rejected", c.id, "call party is not the case owner");
+  await addCaseEvent(c.id, "system", {
+    note: `Owner call ${f.session.id} ended: outcome ${f.outcome ?? "unknown"}${f.hangup_reason ? `, hangup ${f.hangup_reason}` : ""}; authority ${f.authority_mode ?? "unknown"}.`,
+    voice_session: f.session.id,
+  });
+  if (!f.answered_by_person) {
+    // V02: truthful pending state + one bounded text fallback (deduped on this event).
+    await enqueueCaseMessage(c, {
+      purpose: "conflict_question",
+      body: `I tried to call you about your recovery request but couldn't reach you. ${f.session.question} Reply here. Nothing has been changed yet.`,
+      planId: f.session.plan_id ?? undefined,
+      triggerEventId: ev.id,
+    });
+    await updateCase(c.id, { state: "awaiting_owner" });
+    return finish(ev.id, "handled", c.id, `call unresolved (${f.outcome ?? "unknown"}); one text fallback queued`);
+  }
+  await addCaseEvent(c.id, "inbound", { text: `[owner phone call transcript] ${truncate(f.transcript, 1500)}`, channel: "voice", voice_session: f.session.id });
+  await bumpIntent(c.id);
+  const fresh = (await getCase(c.id))!;
+  const staleNote = f.stale
+    ? ` This call was about plan ${f.session.plan_id}, which is no longer the current plan (it changed, expired, or a newer owner message arrived). Do not reuse it: preview again from current state and confirm by text.`
+    : "";
+  const rec = await runTurn(
+    fresh,
+    ev,
+    [
+      `OWNER CALL RESULT for plan ${f.session.plan_id} (proposed intent only; it is NOT approval and authorizes nothing).${staleNote}`,
+      `Question asked: ${f.session.question}`,
+      `Transcript:\n${f.transcript}`,
+      f.action_items.length ? `Assistant's notes: ${f.action_items.join(" | ")}` : "",
+      `If the owner clearly decided each conflict, continue with step 4 (preview with their keep choices, then request_approval by text; they confirm with the YES code). If anything is unclear or contradictory, send one clarification text instead. Do not place another call.`,
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    null,
+    null,
+  );
+  return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);
+}
+
+let lastLimitCheck = 0;
 async function tick(): Promise<boolean> {
+  if (Date.now() - lastLimitCheck > 10_000) {
+    lastLimitCheck = Date.now();
+    const cut = await enforceCallLimits().catch(() => [] as string[]);
+    if (cut.length) console.log(`[worker] hung up over-limit calls: ${cut.join(", ")}`);
+  }
   let worked = false;
   const ev = await claim();
   if (ev) {
@@ -225,7 +292,7 @@ async function tick(): Promise<boolean> {
 async function main() {
   mkdirSync(process.env.AGENT_SCRATCH_DIR ?? "/tmp/undo-agent", { recursive: true });
   process.env.AGENT_SCRATCH_DIR ??= "/tmp/undo-agent";
-  console.log(`[worker] up: store=${STORE} mcp=${MCP_URL} live_send=${process.env.LIVE_SEND_ENABLED === "true"}`);
+  console.log(`[worker] up: store=${STORE} mcp=${MCP_URL} live_send=${process.env.LIVE_SEND_ENABLED === "true"} voice=${process.env.OWNER_VOICE_ENABLED === "true" ? `on (cap ${process.env.MAX_LIVE_CALLS ?? 0}, ${process.env.MAX_CALL_DURATION_SECONDS ?? 180}s)` : "off"}`);
   let stop = false;
   process.on("SIGINT", () => (stop = true));
   process.on("SIGTERM", () => (stop = true));

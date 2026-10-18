@@ -116,9 +116,10 @@ describe("U19 durable leases", () => {
   it("an outbox row with an unknown outcome is never resent automatically", async () => {
     const { deliverPending } = await import("../../src/comms/outbox.js");
     await query(`update outbox_messages set status='failed' where status='pending'`);
-    await query(`insert into outbox_messages(id, store_id, dedupe_key, channel, recipient_principal_id, purpose, body, status) values ('msg_unknown_t', $1, $2, 'imessage', 'pr_owner', 'reply', 'x', 'outcome_unknown')`, [S, `t:${Date.now()}`]);
+    const id = `msg_unknown_${Date.now()}`; // unique per run: the test branch keeps earlier runs' rows
+    await query(`insert into outbox_messages(id, store_id, dedupe_key, channel, recipient_principal_id, purpose, body, status) values ($3, $1, $2, 'imessage', 'pr_owner', 'reply', 'x', 'outcome_unknown')`, [S, `t:${Date.now()}`, id]);
     expect(await deliverPending(3)).toEqual([]);
-    expect((await query(`select status, attempts from outbox_messages where id='msg_unknown_t'`)).rows[0]).toMatchObject({ status: "outcome_unknown", attempts: 0 });
+    expect((await query(`select status, attempts from outbox_messages where id=$1`, [id])).rows[0]).toMatchObject({ status: "outcome_unknown", attempts: 0 });
   });
 });
 

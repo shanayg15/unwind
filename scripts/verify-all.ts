@@ -39,7 +39,7 @@ for (const f of ["reports/vitest-integration.json", "reports/vitest-security.jso
   for (const file of j?.testResults ?? []) {
     for (const t of file.assertionResults ?? []) {
       const full = `${(t.ancestorTitles ?? []).join(" > ")} > ${t.title}`;
-      for (const id of full.match(/U\d\d/g) ?? []) {
+      for (const id of full.match(/[UV]\d\d/g) ?? []) {
         testsById.set(id, [...(testsById.get(id) ?? []), { name: full, ok: t.status === "passed", file: String(file.name).replace(/^.*\/tests\//, "tests/") }]);
       }
     }
@@ -100,13 +100,23 @@ for (let n = 1; n <= 32; n++) {
       add(id, t ? t.ok : null, t?.ev ?? []);
   }
 }
+// Voice is in the approved scope (2026-10-17), so V01-V05 are mandatory. V01 needs a real provider call run.
+const voiceRuns = runs.filter((r) => r.j?.voice?.some((v: any) => v.provider_call_id && v.status === "ended" && v.case_id));
+const voiceOn = process.env.OWNER_VOICE_ENABLED === "true";
+if (voiceOn) {
+  add("V01", voiceRuns.length ? true : null, voiceRuns.length ? voiceRuns.map((r) => `reports/runs/${r.f} (real owner call, case-bound outcome)`) : ["no live call evidence in reports/runs"]);
+  for (const id of ["V02", "V03", "V04", "V05"]) {
+    const t = fromTests(id);
+    add(id, t ? t.ok : null, t?.ev ?? []);
+  }
+}
 const e2eOk = e2e?.results?.every((r: any) => r.pass) ?? null;
 const out = {
   generated_at: new Date().toISOString(),
   release_status: items.every((i) => i.status === "passed") && e2eOk ? "DONE_SCOPED_RELEASE" : "DEMO_READY_WITH_LIMITS_OR_BUILDING",
   gates: steps.map((s) => ({ name: s.name, ok: s.ok ?? null, ms: s.ms ?? null })),
   e2e: e2eOk,
-  voice: "NOT_ENABLED (V01-V05 not in approved scope)",
+  voice: voiceOn ? (items.filter((i) => i.id.startsWith("V")).every((i) => i.status === "passed") ? "VERIFIED" : "ENABLED_UNTESTED") : "NOT_ENABLED",
   approved_scope_reductions: ["Owner phone channel is iMessage via the Inkbox shared router instead of SMS (user-approved 2026-10-17)"],
   items,
 };
