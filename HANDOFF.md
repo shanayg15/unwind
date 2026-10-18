@@ -19,6 +19,9 @@ Deploys: pushing main auto-deploys through the Manufact GitHub App (`pnpm deploy
 Approvals: owner replies "YES <code>" by text (worker code checks it) or uses the optional link page.
 Headless Chromium for `mcp-use screenshot`: started on DevTools port 9333 (profile in the session scratchpad); restart with the Playwright Chromium binary if gone.
 
-Exact next action (18:20): owner replies YES to the pouch plan (case case_3a6r290hjh) → send customer email via Composio (gmail_wading-tuth, ≤3 rehearsal sends approved) → `scripts/evidence.ts pouch-1` + `scripts/pa-report.ts` → V01 live call (weekend scenario, owner text includes "call me") → Armature (evals/ARMATURE_SETUP.md) → 3 rehearsals + recording + final report.
-Restart the worker after the pouch run so it picks up the label-based preview prompt.
+Exact next action (PAUSED by user 18:45): V01 live call. Demo store is already reset to the weekend campaign
+(jacket order linked at $108, tote order unlinked, operator shoe price $139 conflict, jacket sizing edit). Worker running in the
+"UNDO worker" tab with voice on (cap 6, 180 s). On resume: owner texts the withdrawal + "Call me about any conflicts", takes the call,
+then approves by text with the YES code. Then Armature (evals/ARMATURE_SETUP.md) -> 3 rehearsals + recording + final report.
+Live pouch run done: reports/runs/pouch-1.json (PA01-PA12 pass, reports/PURCHASE_AWARE_ACCEPTANCE.md). Rehearsal emails left: 2.
 Not yet written: scripts/provider-smoke.ts (test:providers).
