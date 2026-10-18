@@ -236,7 +236,7 @@ export const undoApplyTool = server.tool(
       "Apply a previewed plan. Requires plan_id + plan_hash and either the owner's approval_id for that exact hash, owner credentials, or a standing grant. Re-checks every component under lock: only components still at their recorded launch revision are restored (as new revisions); later edits are withheld, never overwritten. Returns restored, withheld and accepted-exception items. A gift promotion is retired: closed to new orders, only campaign-held units released, accepted orders keep their gift. If orders changed the counts since preview, it returns status stale_dependency_state with a fresh plan (nothing written).",
     inputSchema: z.object({
       plan_id: z.string().max(40),
-      plan_hash: z.string().length(64),
+      plan_hash: z.string().length(64).optional().describe("From undo_preview; optional when approval_id is given (the approval is bound to one plan hash)"),
       approval_id: z.string().max(40).optional().describe("Owner approval for this exact plan_hash"),
       idempotency_key: idem.optional().describe("Optional; defaults to a key derived from plan_id + approval_id, so retries never apply twice"),
     }),

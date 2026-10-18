@@ -59,6 +59,15 @@ describe("U26 safe default idempotency", () => {
     expect((await query(`select count(*)::int n from recovery_attempts where plan_id=$1`, [plan.plan_id])).rows[0].n).toBe(1);
   });
 
+  it("apply accepts the owner's approval_id alone (the approval binds the exact plan hash)", async () => {
+    const plan = (await undoPreview(a.agent, { rollout_id: weekend.rollout_id, labels: ["clearance"] })) as unknown as Plan;
+    const appr = await approveAsOwner("pr_owner", S, "recovery", plan.plan_id, plan.plan_hash, "test_owner_session");
+    const res = await undoApply(a.agent, { plan_id: plan.plan_id, approval_id: appr });
+    expect(res.status).toBeTruthy();
+    await expect(undoApply(a.agent, { plan_id: plan.plan_id })).rejects.toMatchObject({ code: "invalid_input" });
+    await expect(undoApply(a.agent, { plan_id: plan.plan_id, approval_id: "apv_not_real" })).rejects.toMatchObject({ code: "approval_invalid" });
+  });
+
   it("proposing the same rollout twice without a key records it once", async () => {
     const proposal = { goal: "Tote copy refresh", changes: [{ op: "set_content", product_id: "prd_demo_tote", component_key: "promotional_copy", value: "Canvas tote, now in natural." }] } as unknown as Proposal;
     const one = (await undoExecute(a.agent, { proposal })) as { rollout_id: string };

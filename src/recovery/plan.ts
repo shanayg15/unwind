@@ -329,7 +329,8 @@ function countBy(items: PlanItem[]) {
 
 export interface ApplyInput {
   plan_id: string;
-  plan_hash: string;
+  /** Optional when approval_id is given: the approval is bound to exactly one plan hash. */
+  plan_hash?: string;
   approval_id?: string;
   /** Optional: defaults to a key derived from the plan and approval, so a retry can never apply twice. */
   idempotency_key?: string;
@@ -352,7 +353,13 @@ class StaleDependency extends Error {
 
 export async function undoApply(p: Principal, raw: ApplyInput, hooks: ApplyTestHooks = {}): Promise<Record<string, unknown>> {
   requireRole(p, ["agent", "evaluator", "owner"], "apply recovery");
-  const input = { ...raw, idempotency_key: raw.idempotency_key ?? `auto-apply-${raw.plan_id}-${raw.approval_id ?? "direct"}` };
+  let planHash = raw.plan_hash;
+  if (!planHash) {
+    if (!raw.approval_id) throw new UndoError("invalid_input", "Provide plan_hash (from undo_preview), or the owner's approval_id for this plan", {}, "pass plan_hash or approval_id");
+    planHash = (await withTx((tx) => tx.query(`select subject_hash from approvals where id=$1 and store_id=$2 and kind='recovery' and subject_id=$3`, [raw.approval_id, p.storeId, raw.plan_id]))).rows[0]?.subject_hash;
+    if (!planHash) throw new UndoError("approval_invalid", "Approval not found for this plan", { plan_id: raw.plan_id });
+  }
+  const input = { ...raw, plan_hash: planHash, idempotency_key: raw.idempotency_key ?? `auto-apply-${raw.plan_id}-${raw.approval_id ?? "direct"}` };
   try {
     return await applyLocked(p, input, hooks);
   } catch (e) {
@@ -388,7 +395,7 @@ export async function undoApply(p: Principal, raw: ApplyInput, hooks: ApplyTestH
   }
 }
 
-async function applyLocked(p: Principal, input: ApplyInput & { idempotency_key: string }, hooks: ApplyTestHooks): Promise<Record<string, unknown>> {
+async function applyLocked(p: Principal, input: ApplyInput & { plan_hash: string; idempotency_key: string }, hooks: ApplyTestHooks): Promise<Record<string, unknown>> {
   const compensationActionId = newId("act");
   return withTx(
     async (tx) => {

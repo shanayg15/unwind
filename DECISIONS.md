@@ -28,3 +28,5 @@
 | 2026-10-17 17:10 | The offer and its banner/copy share one atomic recovery group in the fixture; a coupled presentation conflict withholds the whole group (reported as blocked) rather than half-retiring | Addendum section 6 retirement apply | Builder |
 | 2026-10-17 18:35 | Rehearsal customer email 1 of 3 used (Composio, OpenSwarm Gmail -> shop mailbox) for the live pouch run `reports/runs/pouch-1.json`; 2 remain | Within the user's approval | User approved |
 | 2026-10-17 18:20 | undo_preview selects by labels / all_changes / change_ids and infers the rollout only when exactly one is recoverable; idempotency keys default to plan/approval- or proposal-derived keys | Agent experience: fewer exact ids to copy while keeping deterministic, retry-safe behavior | Builder |
+| 2026-10-17 20:35 | Owner texts for rehearsals 2 and 3 may be sent from the user's Mac Messages app (their Apple ID) to the shop's Inkbox router number only; one extra (4th) rehearsal customer email approved | User approved, to avoid repeated manual texting | User approved |
+| 2026-10-17 20:35 | Rehearsal customer email 2 of 4 used (rehearsal 1) | Within approval | User approved |

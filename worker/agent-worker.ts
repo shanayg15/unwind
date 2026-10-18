@@ -29,7 +29,7 @@ Procedure:
 2. Call undo_preview with the rollout_id and either labels (e.g. ["premium"]) or all_changes: true for a whole experiment (exact change_ids also work), plus an intent_note quoting the owner's instruction briefly. Then call undo_impact with the plan_id.
 3. If the preview has conflicts and the owner has not yet said what to do about them, send ONE concise text (purpose "conflict_question") naming each conflict: the product/component, the value your launch recorded, and the current value set by someone else. Ask whether to keep the current value. Say nothing has been changed yet. Then case_update(state "awaiting_owner") and stop. Exception: if case_call_owner is available AND the owner asked to be called (e.g. "call me"), ask the same question with case_call_owner(plan_id, question) instead of texting it, then stop; the call result arrives later as a new event.
 4. When the owner's message decides the conflicts, preview again with keep_current_change_ids set to the conflicting change_ids they chose to keep, then case_send(purpose "request_approval", plan_id) with a short summary: what will be restored, what stays as their exception, what is preserved. The system appends a one-time confirmation code; the owner approves by replying YES plus that code (you never see or repeat the code). case_update(plan_id, state "awaiting_approval") and stop. Never claim anything was applied yet. If there are no conflicts, go straight to this step after step 2.
-5. When you receive an APPROVAL GRANTED system event for the current plan: undo_apply(plan_id, plan_hash, approval_id, fresh idempotency_key), then undo_verify(recovery_id), then case_send(purpose "completion_summary") stating exactly what verify shows was restored, what was kept as the owner's exception, and what was preserved (unselected launch changes such as clearance and navigation, independent sizing edits, existing orders). Then case_update(state "resolved").
+5. When you receive an APPROVAL GRANTED system event for the current plan: undo_apply(plan_id, plan_hash exactly as given in the event (or omit it; the approval_id binds the plan), approval_id, fresh idempotency_key), then undo_verify(recovery_id), then case_send(purpose "completion_summary") stating exactly what verify shows was restored, what was kept as the owner's exception, and what was preserved (unselected launch changes such as clearance and navigation, independent sizing edits, existing orders). Then case_update(state "resolved").
 Gift offers (purchase-aware): a rollout may contain a start_gift_promotion change (labels promotion, gift_offer). To stop such an experiment, select the offer AND its presentation changes from that rollout. Preview shows purchase_dependencies: units set aside, units committed to accepted orders, and units the offer still holds. Accepted orders always keep their gift; only held units are released. In the approval request and the completion summary state the actual numbers (e.g. "4 accepted orders keep their pouch, 6 go back to stock"). If undo_apply returns status stale_dependency_state, an order arrived after preview: nothing was changed; text the owner the new numbers and request_approval for fresh_plan.plan_id (never reuse the old approval or force it).
 Rules: you can never approve for the owner; their text is intent, the link is authorization. Never contact customers from this case. Plain text only, no markdown, under 600 characters per message. Record rollout_id/plan_id with case_update when you learn them.`;
 
@@ -76,6 +76,11 @@ async function principalFor(storeId: string, kind: "phone" | "email", value: str
   return rows[0] as { id: string; role: string } | undefined;
 }
 
+/** The exact plan hash an approval is bound to, so the agent can apply without re-previewing. */
+async function planHashOf(planId: string): Promise<string | null> {
+  return ((await query(`select plan_hash from recovery_plans where id=$1`, [planId])).rows[0]?.plan_hash as string | undefined) ?? null;
+}
+
 function caseHandlers(c: CaseRow, triggerEventId: string, inReplyTo: string | null, subject: string | null) {
   return {
     read: async () => {
@@ -88,6 +93,7 @@ function caseHandlers(c: CaseRow, triggerEventId: string, inReplyTo: string | nu
         intent_version: cur.intent_version,
         rollout_id: cur.rollout_id,
         plan_id: cur.plan_id,
+        plan_hash: cur.plan_id ? await planHashOf(cur.plan_id) : null,
         summary: cur.summary,
         conversation: await caseTranscript(cur.id, 16),
       };
@@ -167,7 +173,7 @@ export async function processEvent(ev: InboxRow): Promise<void> {
     const c = p.case_id ? await getCase(String(p.case_id)) : null;
     if (!c || c.role !== "owner") return finish(ev.id, "rejected", null, "approval event without owner case");
     await addCaseEvent(c.id, "approval", { text: `Owner approved plan ${p.subject_id} via the authenticated link (approval ${p.approval_id}).` });
-    const rec = await runTurn(c, ev, `APPROVAL GRANTED: approval_id ${p.approval_id} for plan_id ${p.subject_id}. The owner confirmed this exact plan hash through the authenticated single-use link. Apply, verify, and report.`, null, null);
+    const rec = await runTurn(c, ev, `APPROVAL GRANTED: approval_id ${p.approval_id} for plan_id ${p.subject_id} (plan_hash ${await planHashOf(String(p.subject_id))}). The owner confirmed this exact plan hash through the authenticated single-use link. Apply, verify, and report.`, null, null);
     return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);
   }
   if (ev.event_type === "call.ended") return handleCallEnded(ev);
@@ -189,7 +195,7 @@ export async function processEvent(ev: InboxRow): Promise<void> {
       const fresh = (await getCase(c.id))!;
       const note =
         verdict.decision === "approve"
-          ? `APPROVAL GRANTED: approval_id ${verdict.approvalId} for plan_id ${verdict.subjectId}. The owner replied from their verified phone with the confirmation code issued for this exact plan hash. Apply, verify, and report.`
+          ? `APPROVAL GRANTED: approval_id ${verdict.approvalId} for plan_id ${verdict.subjectId} (plan_hash ${await planHashOf(String(verdict.subjectId))}). The owner replied from their verified phone with the confirmation code issued for this exact plan hash. Apply, verify, and report.`
           : `The owner DECLINED plan ${verdict.subjectId} by text. Do not apply it. Acknowledge briefly, set the case state to resolved, and say nothing was changed.`;
       const rec = await runTurn(fresh, ev, note, null, null);
       return finish(ev.id, rec.stop.startsWith("error") || rec.stop === "timeout" ? "failed" : "handled", c.id, rec.stop.startsWith("error") ? rec.stop : undefined);

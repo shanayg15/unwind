@@ -1,0 +1,557 @@
+{
+  "label": "rehearsal-1",
+  "captured_at": "2026-10-18T03:33:14.361Z",
+  "store": "store_demo",
+  "deployment_mcp": "https://bold-cloud-77gfl.run.mcp-use.com/mcp",
+  "owner_contact": "+1925***1746",
+  "rollout": {
+    "id": "ro_h4hncfj31f",
+    "goal": "Weekend launch: 10% off premium, 20% off clearance, promo copy, homepage tiles, navigation",
+    "executed_at": "2026-10-18T03:18:34.785Z",
+    "launched_by": "pr_agent"
+  },
+  "recovery": {
+    "id": "rec_7kmby35xdq",
+    "status": "resolved_with_exceptions",
+    "authorization": "owner_approval",
+    "at": "2026-10-18T03:26:00.304Z"
+  },
+  "verify": {
+    "verdict": "verified",
+    "recovery_id": "rec_7kmby35xdq",
+    "recovery_status": "resolved_with_exceptions",
+    "authorization": "owner_approval",
+    "rollout_id": "ro_h4hncfj31f",
+    "accepted_exceptions": [
+      {
+        "decision": "keep_current",
+        "change_id": "chg_yhgj2d82z9",
+        "component": "price:prd_demo_shoes:price",
+        "current_value": {
+          "currency": "USD",
+          "amount_minor": 13900
+        }
+      }
+    ],
+    "withheld": [],
+    "checks": [
+      {
+        "check": "restored_component",
+        "change_id": "chg_x5kddf2has",
+        "component": "content:prd_demo_jacket:promotional_copy",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "text": "Our lightest storm shell for three-season trails."
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_x1r4ze33bq",
+        "component": "content:prd_demo_pack:promotional_copy",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "text": "A day pack with a weatherproof shell."
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_m5k3d1bzzb",
+        "component": "content:prd_demo_shoes:promotional_copy",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "text": "Grippy, cushioned and built for long miles."
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_yccq1bqwdz",
+        "component": "content:prd_demo_sweater:promotional_copy",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "text": "Soft merino that layers under any shell."
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_h3yegz8rev",
+        "component": "price:prd_demo_jacket:price",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "amount_minor": 12000,
+          "currency": "USD"
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_1zby7wegx3",
+        "component": "price:prd_demo_pack:price",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "amount_minor": 8000,
+          "currency": "USD"
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_jf7zfdcjt2",
+        "component": "price:prd_demo_sweater:price",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "amount_minor": 9500,
+          "currency": "USD"
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_qnwzbwg29d",
+        "component": "slot:slot_demo_premium_home:premium_home",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "title": "New season essentials"
+        },
+        "state": "restored"
+      },
+      {
+        "check": "no_unselected_writes",
+        "passed": true,
+        "recovery_writes": 8,
+        "unexpected": []
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_p7n3g3km3w",
+        "component": "content:prd_demo_shirt:promotional_copy",
+        "labels": [
+          "clearance",
+          "promotional_copy"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_frjqs0r4ds",
+        "component": "price:prd_demo_cap:price",
+        "labels": [
+          "clearance",
+          "price"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_2vep0htdkj",
+        "component": "price:prd_demo_shirt:price",
+        "labels": [
+          "clearance",
+          "price"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_f6ytqq2jqf",
+        "component": "price:prd_demo_shorts:price",
+        "labels": [
+          "clearance",
+          "price"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_14zgdv1g70",
+        "component": "slot:slot_demo_clearance_home:clearance_home",
+        "labels": [
+          "clearance",
+          "placement",
+          "clearance_home"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "unselected_change_preserved",
+        "change_id": "chg_f82tx4vx3x",
+        "component": "slot:slot_demo_navigation:navigation",
+        "labels": [
+          "navigation",
+          "placement",
+          "navigation"
+        ],
+        "state": "launch value preserved"
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "PRM-JKT",
+        "component": "content:prd_demo_jacket:sizing_info",
+        "current_revision": 2,
+        "last_writer": "pr_operator",
+        "current_value": "Runs small: size up if between sizes. Model is 6'0\" wearing L.",
+        "passed": true
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "PRM-SHO",
+        "component": "content:prd_demo_shoes:sizing_info",
+        "current_revision": 1,
+        "last_writer": "fixture",
+        "current_value": "Half sizes available; order your usual size.",
+        "passed": true
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "PRM-KNT",
+        "component": "content:prd_demo_sweater:sizing_info",
+        "current_revision": 1,
+        "last_writer": "fixture",
+        "current_value": "Relaxed fit; size down for a closer fit.",
+        "passed": true
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "PRM-PCK",
+        "component": "content:prd_demo_pack:sizing_info",
+        "current_revision": 1,
+        "last_writer": "fixture",
+        "current_value": "One size; torso 16-21 in.",
+        "passed": true
+      },
+      {
+        "check": "order_snapshots_unchanged",
+        "passed": true,
+        "orders_checked": 3,
+        "cutoff_order_seq": 66,
+        "orders_after_cutoff": 0
+      }
+    ],
+    "communications": [
+      {
+        "message_id": "msg_kqr9er9w4h",
+        "channel": "imessage",
+        "purpose": "conflict_question",
+        "status": "delivered"
+      },
+      {
+        "message_id": "msg_wy8yd9ybxf",
+        "channel": "imessage",
+        "purpose": "request_approval",
+        "status": "delivered"
+      },
+      {
+        "message_id": "msg_6zmxbbd015",
+        "channel": "imessage",
+        "purpose": "completion_summary",
+        "status": "delivered"
+      }
+    ],
+    "open_customer_cases": 0,
+    "next_action": "none",
+    "checked_at": "2026-10-18T03:33:13.697Z"
+  },
+  "cases": [
+    {
+      "case_id": "case_9abd3zkjpe",
+      "role": "owner",
+      "state": "resolved",
+      "intent_version": 2,
+      "events": [
+        {
+          "at": "2026-10-18T03:23:46.190Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 182,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T03:24:03.504Z",
+          "kind": "outbound",
+          "purpose": "conflict_question",
+          "text": "Nothing has been changed yet. Restoring premium covers 9 changes; 8 are ready to restore. One conflict: the Trail Runner Shoe price. The launch set it to $135.00, but someone else later changed it to $139.00 (the original was $150.00). Should I keep the current $139.00, or not? Clearance, navigation, sizing edits and existing orders stay as they are either way. 1 existing order paid the $108 launch price on the jacket; that order won't change."
+        },
+        {
+          "at": "2026-10-18T03:24:13.200Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 7,
+          "duration_ms": 26215,
+          "tool_calls": [
+            "undo__undo_capabilities",
+            "undo__undo_history",
+            "undo__undo_preview",
+            "undo__undo_impact",
+            "case__case_send",
+            "case__case_update"
+          ]
+        },
+        {
+          "at": "2026-10-18T03:24:32.087Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 28,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T03:24:46.910Z",
+          "kind": "outbound",
+          "purpose": "request_approval",
+          "text": "Ready to apply, nothing changed yet. Will restore: jacket $120.00, sweater $95.00, pack $80.00, original promo copy on all 4 premium products, and the premium homepage tile (\"New season essentials\"). Your exception: Trail Runner Shoe stays at $139.00. Preserved: clearance prices/copy/tile, navigation, sizing edits, and existing orders (the $108 jacket order stays as is). Reply YES with the code below to approve. [reply-to-approve code and details link attached by the system]"
+        },
+        {
+          "at": "2026-10-18T03:24:53.546Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 5,
+          "duration_ms": 20777,
+          "tool_calls": [
+            "undo__undo_preview",
+            "undo__undo_impact",
+            "case__case_send",
+            "case__case_update"
+          ]
+        },
+        {
+          "at": "2026-10-18T03:25:37.105Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 8,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T03:25:37.246Z",
+          "kind": "approval",
+          "text": "Owner approved plan plan_atk7xjn794 by text reply with the plan's confirmation code (approval apv_e28w0tqyjn)."
+        },
+        {
+          "at": "2026-10-18T03:26:07.647Z",
+          "kind": "outbound",
+          "purpose": "completion_summary",
+          "text": "Done and verified. Restored: jacket $120.00, sweater $95.00, pack $80.00, original promo copy on all 4 premium products, and the premium homepage tile (\"New season essentials\"). Your exception: Trail Runner Shoe stays at $139.00. Unchanged: clearance prices, copy and tile, navigation, sizing edits, and all 3 existing orders (the $108 jacket order stays as is). Nothing outside these 8 items was changed."
+        },
+        {
+          "at": "2026-10-18T03:26:17.701Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 8,
+          "duration_ms": 39860,
+          "tool_calls": [
+            "case__case_read",
+            "undo__undo_impact",
+            "undo__undo_preview",
+            "undo__undo_apply",
+            "undo__undo_verify",
+            "case__case_send",
+            "case__case_update"
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "outbox_id": "msg_kqr9er9w4h",
+          "channel": "imessage",
+          "purpose": "conflict_question",
+          "status": "delivered",
+          "provider_message_ref": "433d75ea…606fa0",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T03:24:03.433Z",
+          "sent_at": "2026-10-18T03:24:14.134Z"
+        },
+        {
+          "outbox_id": "msg_wy8yd9ybxf",
+          "channel": "imessage",
+          "purpose": "request_approval",
+          "status": "delivered",
+          "provider_message_ref": "34613df1…45e37d",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T03:24:46.839Z",
+          "sent_at": "2026-10-18T03:24:54.615Z"
+        },
+        {
+          "outbox_id": "msg_6zmxbbd015",
+          "channel": "imessage",
+          "purpose": "completion_summary",
+          "status": "delivered",
+          "provider_message_ref": "6ea81f7c…57abf5",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T03:26:07.576Z",
+          "sent_at": "2026-10-18T03:26:18.897Z"
+        }
+      ]
+    },
+    {
+      "case_id": "case_8yjxvk5qzh",
+      "role": "customer",
+      "state": "resolved",
+      "intent_version": 0,
+      "events": [
+        {
+          "at": "2026-10-18T03:31:21.244Z",
+          "kind": "inbound",
+          "channel": "email",
+          "chars": 130,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T03:31:34.888Z",
+          "kind": "outbound",
+          "purpose": "order_answer",
+          "text": "Hi,\n\nThanks for getting in touch. Here are the recorded details of your order:\n\nOrder reference: ord_svva3gcq6n\nItem: Alpine Shell Jacket\nQuantity: 1\nUnit price: $108.00\nTotal: $108.00\nStatus: Placed (test order)\n\nYes, your order is still recorded at $108.00. Changes made to the catalog or to promotions after an order is placed, including the end of a promotion, do not change that order's recorded amount or status.\n\nPlease note that this is a test order, so no payment was processed.\n\nBest regards,\nCustomer Support"
+        },
+        {
+          "at": "2026-10-18T03:31:45.633Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 5,
+          "duration_ms": 23864,
+          "tool_calls": [
+            "case__case_read",
+            "undo__undo_impact",
+            "case__case_send",
+            "case__case_update"
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "outbox_id": "msg_n0scfh6evb",
+          "channel": "email",
+          "purpose": "order_answer",
+          "status": "delivered",
+          "provider_message_ref": "ebc70b69…4fe4cf",
+          "recipient": "sh***@openswarm.com",
+          "created_at": "2026-10-18T03:31:34.818Z",
+          "sent_at": "2026-10-18T03:31:47.779Z"
+        }
+      ]
+    }
+  ],
+  "voice": [],
+  "inbox_events": [
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T03:23:43.490Z",
+      "handled_at": "2026-10-18T03:24:13.342Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T03:24:16.995Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T03:24:31.585Z",
+      "handled_at": "2026-10-18T03:24:53.692Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T03:24:56.986Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T03:25:35.017Z",
+      "handled_at": "2026-10-18T03:26:17.926Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T03:26:21.741Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T03:31:20.469Z",
+      "handled_at": "2026-10-18T03:31:45.772Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.sent",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T03:31:47.679Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T03:31:48.931Z",
+      "handled_at": null
+    }
+  ],
+  "rehearsal": {
+    "n": 1,
+    "build": "c0754e6",
+    "deployed_commit": "c0754e64f1f63c9f6c75696c529c671918aa069f",
+    "after_check": [
+      "PASS recovery status: resolved_with_exceptions",
+      "PASS jacket price restored: 12000 == 12000",
+      "PASS sweater price restored: 9500 == 9500",
+      "PASS pack price restored: 8000 == 8000",
+      "PASS jacket promo restored: evergreen copy back",
+      "PASS shoes promo restored: evergreen copy back",
+      "PASS sweater promo restored: evergreen copy back",
+      "PASS pack promo restored: evergreen copy back",
+      "PASS shoe kept at $139: 13900",
+      "PASS shirt clearance kept: 4000 == 4000",
+      "PASS shorts clearance kept: 2800 == 2800",
+      "PASS cap clearance kept: 1600 == 1600",
+      "PASS premium tile restored: New season essentials",
+      "PASS clearance tile kept: Clearance: extra 20% off",
+      "PASS navigation kept: 4 items",
+      "PASS jacket sizing edit preserved: last writer pr_operator",
+      "PASS orders unchanged: 3 lines; jacket at $108.00 intact",
+      "after: 17 passed, 0 failed (store_demo)"
+    ],
+    "consistent_outcome": {
+      "recovery_status": "resolved_with_exceptions",
+      "verify": "verified",
+      "owner_messages": [
+        "conflict_question=delivered",
+        "request_approval=delivered",
+        "completion_summary=delivered"
+      ],
+      "customer_messages": [
+        "order_answer=delivered"
+      ]
+    }
+  }
+}
