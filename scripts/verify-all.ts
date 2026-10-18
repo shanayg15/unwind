@@ -39,7 +39,7 @@ for (const f of ["reports/vitest-integration.json", "reports/vitest-security.jso
   for (const file of j?.testResults ?? []) {
     for (const t of file.assertionResults ?? []) {
       const full = `${(t.ancestorTitles ?? []).join(" > ")} > ${t.title}`;
-      for (const id of full.match(/[UV]\d\d/g) ?? []) {
+      for (const id of full.match(/(?:PA|U|V)\d\d/g) ?? []) {
         testsById.set(id, [...(testsById.get(id) ?? []), { name: full, ok: t.status === "passed", file: String(file.name).replace(/^.*\/tests\//, "tests/") }]);
       }
     }

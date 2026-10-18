@@ -7,6 +7,7 @@ import { UndoError } from "../lib/errors.js";
 import { audit, reserveKey, storeResponse } from "../lib/idempotency.js";
 import { hashOf, newId, truncate } from "../lib/util.js";
 import { orderSnapshot } from "../orders/snapshot.js";
+import { type DependencyWatermark, dependencyWatermark, type PromotionState, promotionState, retirePromotion, retirementFacts } from "../promotions/gift.js";
 import { loadPolicy } from "./execute.js";
 
 export type ItemStatus = "eligible" | "conflict" | "already_reverted" | "kept_by_new_decision" | "unsupported" | "unknown";
@@ -27,12 +28,15 @@ export interface PlanItem {
   inverse_value: Record<string, unknown>;
   will_write: boolean;
   note: string;
+  /** Promotion items only: order-dependency watermark the plan is bound to, and the retirement facts. */
+  dependency?: DependencyWatermark;
+  retirement?: ReturnType<typeof retirementFacts>;
 }
 
 interface ChangeRow {
   id: string;
   rollout_id: string;
-  component_type: "price" | "content" | "slot";
+  component_type: "price" | "content" | "slot" | "promotion";
   component_id: string;
   component_key: string;
   scope_labels: string[];
@@ -59,7 +63,7 @@ async function loadChanges(tx: Tx, storeId: string, rolloutId: string, changeIds
 }
 
 /** Classify each selected change against current (optionally locked) state. Pure read. */
-async function classify(tx: Tx, storeId: string, changes: ChangeRow[], keep: Set<string>, lock: boolean): Promise<PlanItem[]> {
+async function classify(tx: Tx, storeId: string, changes: ChangeRow[], keep: Set<string>, lock: boolean, states?: Map<string, PromotionState>): Promise<PlanItem[]> {
   const ordered = sortRefs(
     changes.map((c) => ({ c, ref: { type: c.component_type, id: c.component_id, key: c.component_key } as ComponentRef })),
   );
@@ -78,6 +82,28 @@ async function classify(tx: Tx, storeId: string, changes: ChangeRow[], keep: Set
       recorded_after: c.after_value,
       inverse_value: c.before_value,
     };
+    if (c.component_type === "promotion") {
+      // Purchase-aware adapter: an experiment is retired, not value-restored. Orders that accepted the gift
+      // own their units; only the campaign-held remainder is releasable. Consumption is not a conflict.
+      const st = await promotionState(tx, storeId, c.component_id, lock);
+      if (st && states) states.set(c.id, st);
+      const cur = st ? { state: st.state, held_unallocated: st.allocation.remaining, committed_to_orders: st.committed_quantity } : null;
+      const promo = { ...base, inverse_value: { state: "retired" }, current_revision: st?.revision ?? null, current_value: cur };
+      if (!st) items.push({ ...promo, status: "unknown", will_write: false, note: "promotion no longer exists" });
+      else if (c.recovery_status === "reverted" || st.state === "retired") items.push({ ...promo, status: "already_reverted", will_write: false, note: "experiment already retired", retirement: retirementFacts(st) });
+      else if (st.revision !== afterRev) items.push({ ...promo, status: "conflict", will_write: false, note: `promotion changed after launch (revision ${afterRev} -> ${st.revision}); withheld` });
+      else if (keep.has(c.id)) items.push({ ...promo, status: "kept_by_new_decision", will_write: false, note: "owner decided to keep the experiment running" });
+      else
+        items.push({
+          ...promo,
+          status: "eligible",
+          will_write: true,
+          note: `retire: close to new orders, release ${st.allocation.remaining} held, keep ${st.committed_quantity} committed to accepted orders`,
+          dependency: dependencyWatermark(st),
+          retirement: retirementFacts(st),
+        });
+      continue;
+    }
     if (c.recovery_status === "reverted") {
       const cur = await readComponent(tx, storeId, ref, lock);
       items.push({ ...base, status: "already_reverted", current_revision: cur?.revision ?? null, current_value: cur ? valueToJson(cur.value) : null, will_write: false, note: "already restored by an earlier recovery" });
@@ -142,7 +168,7 @@ function planHash(storeId: string, rolloutId: string, selected: string[], keep: 
     rollout: rolloutId,
     selected: [...selected].sort(),
     keep: [...keep].sort(),
-    items: items.map((i) => ({ c: i.change_id, s: i.status, r: i.current_revision, w: i.will_write, inv: i.inverse_value })),
+    items: items.map((i) => ({ c: i.change_id, s: i.status, r: i.current_revision, w: i.will_write, inv: i.inverse_value, d: i.dependency })),
     orders: orderHash,
   });
 }
@@ -161,6 +187,7 @@ function itemSummary(i: PlanItem) {
     recorded_after_revision: i.recorded_after_revision,
     current_revision: i.current_revision,
     note: i.note,
+    ...(i.retirement ? { retirement: i.retirement } : {}),
   };
 }
 
@@ -210,6 +237,7 @@ export async function undoPreview(p: Principal, input: PreviewInput): Promise<Re
     await audit(tx, p.storeId, p.principalId, "recovery.previewed", { plan_id: planId, plan_hash: hash, selected: selected.length });
     const counts = countBy(items);
     const conflicts = items.filter((i) => i.status === "conflict");
+    const purchase = items.filter((i) => i.retirement).map((i) => ({ change_id: i.change_id, will_retire: i.will_write, ...i.retirement! }));
     const approval =
       p.role === "owner"
         ? "owner_may_apply_directly"
@@ -226,8 +254,15 @@ export async function undoPreview(p: Principal, input: PreviewInput): Promise<Re
       conflicts: conflicts.map(itemSummary),
       items: items.map(itemSummary),
       order_snapshot: { orders_checked: snap.count, max_order_seq: snap.maxSeq, hash: snap.hash },
+      ...(purchase.length
+        ? {
+            purchase_dependencies: purchase,
+            purchase_guarantee:
+              "Accepted orders keep their gift and its committed unit (preserve_order_commitment). Only units the campaign still holds are released (release_remaining). New orders can no longer accept the offer (retire_future_use). This plan is bound to these counts: if an order arrives before apply, apply returns stale_dependency_state with a fresh plan.",
+          }
+        : {}),
       approval,
-      mutations: "none (preview reserves nothing; apply re-checks every component)",
+      mutations: "none (preview reserves nothing; apply re-checks every component and order dependency)",
       next_action:
         conflicts.length > 0
           ? "ask the owner whether to keep each conflicting current value; re-preview with keep_current_change_ids, then get owner confirmation"
@@ -252,8 +287,59 @@ export interface ApplyInput {
   idempotency_key: string;
 }
 
-export async function undoApply(p: Principal, input: ApplyInput): Promise<Record<string, unknown>> {
+/** Test-only fault injection and barriers (never reachable from MCP input). */
+export interface ApplyTestHooks {
+  afterLock?: () => Promise<void>;
+  failAfterRetire?: boolean;
+}
+
+class StaleDependency extends Error {
+  constructor(
+    public plan: { id: string; rollout_id: string; selected_change_ids: string[]; keep_current_change_ids: string[]; intent_note: string | null },
+    public diffs: Array<{ change_id: string; previewed: unknown; current: unknown }>,
+  ) {
+    super("stale dependency state");
+  }
+}
+
+export async function undoApply(p: Principal, input: ApplyInput, hooks: ApplyTestHooks = {}): Promise<Record<string, unknown>> {
   requireRole(p, ["agent", "evaluator", "owner"], "apply recovery");
+  try {
+    return await applyLocked(p, input, hooks);
+  } catch (e) {
+    if (!(e instanceof StaleDependency)) throw e;
+    // The exact plan's order dependencies moved (e.g. a gift order arrived after preview). Never re-scope the
+    // approval: supersede the plan, build a fresh preview from current state, and persist this outcome for the key.
+    const requestHash = hashOf({ plan_id: input.plan_id, plan_hash: input.plan_hash, approval_id: input.approval_id ?? null });
+    const prior = await withTx(async (tx) => {
+      const { replay } = await reserveKey(tx, p.storeId, "apply", input.idempotency_key, requestHash);
+      if (replay) return replay as Record<string, unknown>;
+      await tx.query(`update recovery_plans set status='superseded' where id=$1 and status='open'`, [e.plan.id]);
+      return null;
+    });
+    if (prior) return { ...prior, replayed: true };
+    const fresh = await undoPreview(p, {
+      rollout_id: e.plan.rollout_id,
+      change_ids: e.plan.selected_change_ids,
+      keep_current_change_ids: e.plan.keep_current_change_ids,
+      intent_note: e.plan.intent_note ?? undefined,
+    });
+    const result = {
+      status: "stale_dependency_state",
+      code: "STALE_DEPENDENCY_STATE",
+      plan_id: e.plan.id,
+      message: "Order dependencies changed after preview, so this exact plan was not applied and nothing was written. A fresh plan was created from current state; it needs its own confirmation.",
+      changed: e.diffs,
+      fresh_plan: { plan_id: fresh.plan_id, plan_hash: fresh.plan_hash, approval: fresh.approval, purchase_dependencies: fresh.purchase_dependencies ?? [] },
+      mutations: "none",
+      next_action: fresh.approval === "owner_confirmation_required" ? "get the owner's confirmation of fresh_plan.plan_hash, then call undo_apply with the fresh plan" : "call undo_apply with fresh_plan.plan_id and fresh_plan.plan_hash",
+    };
+    await withTx((tx) => storeResponse(tx, p.storeId, "apply", input.idempotency_key, result));
+    return result;
+  }
+}
+
+async function applyLocked(p: Principal, input: ApplyInput, hooks: ApplyTestHooks): Promise<Record<string, unknown>> {
   const compensationActionId = newId("act");
   return withTx(
     async (tx) => {
@@ -269,6 +355,19 @@ export async function undoApply(p: Principal, input: ApplyInput): Promise<Record
         await tx.query(`update recovery_plans set status='expired' where id=$1`, [plan.id]);
         throw new UndoError("plan_expired", "Plan expired; preview again (an expired plan never overwrites newer edits)", {}, "preview again");
       }
+
+      // Re-check every component and order dependency under lock (U-I9: preview reserved nothing). Locks follow
+      // the global order shared with checkout: components, then promotion -> allocation -> inventory.
+      const changes = await loadChanges(tx, p.storeId, plan.rollout_id, plan.selected_change_ids);
+      const states = new Map<string, PromotionState>();
+      const fresh = await classify(tx, p.storeId, changes, new Set(plan.keep_current_change_ids), true, states);
+      const previewed = new Map<string, PlanItem>((plan.items as PlanItem[]).map((i) => [i.change_id, i]));
+      if (hooks.afterLock) await hooks.afterLock();
+      const moved = fresh
+        .filter((it) => it.ref.type === "promotion" && previewed.get(it.change_id)?.will_write)
+        .filter((it) => !it.will_write || hashOf(it.dependency ?? null) !== hashOf(previewed.get(it.change_id)?.dependency ?? null))
+        .map((it) => ({ change_id: it.change_id, previewed: previewed.get(it.change_id)?.retirement ?? null, current: it.retirement ?? it.current_value }));
+      if (moved.length) throw new StaleDependency(plan, moved);
 
       // Authorization: owner direct, an owner approval bound to this exact plan hash, or a narrow standing grant.
       const policy = await loadPolicy(tx, p.storeId);
@@ -295,10 +394,6 @@ export async function undoApply(p: Principal, input: ApplyInput): Promise<Record
         throw new UndoError("approval_required", "The owner must confirm this exact plan_hash before it is applied", { plan_id: plan.id }, "request_owner_approval");
       }
 
-      // Re-check every component under lock (U-I9: preview reserved nothing).
-      const changes = await loadChanges(tx, p.storeId, plan.rollout_id, plan.selected_change_ids);
-      const fresh = await classify(tx, p.storeId, changes, new Set(plan.keep_current_change_ids), true);
-      const previewed = new Map<string, PlanItem>((plan.items as PlanItem[]).map((i) => [i.change_id, i]));
       const attemptId = newId("rec");
       await tx.query(`insert into actions(id, store_id, rollout_id, kind, actor, idempotency_key, request_hash) values ($1,$2,$3,'compensation',$4,$5,$6)`, [
         compensationActionId,
@@ -313,7 +408,22 @@ export async function undoApply(p: Principal, input: ApplyInput): Promise<Record
       for (const it of fresh) {
         const before = previewed.get(it.change_id);
         const changedSincePreview = before?.will_write === true && !it.will_write;
-        if (it.will_write) {
+        if (it.will_write && it.ref.type === "promotion") {
+          const st = states.get(it.change_id)!;
+          const r = await retirePromotion(tx, p.storeId, st, { actionId: compensationActionId, recoveryId: attemptId, actor: p.principalId, idempotencyRef: input.idempotency_key });
+          if (hooks.failAfterRetire) throw new Error("injected failure after retirement writes (test hook)");
+          await tx.query(`update action_changes set recovery_status='reverted', reverted_by=$2, reverted_at=now() where id=$1`, [it.change_id, attemptId]);
+          results.push({
+            change_id: it.change_id,
+            component: it.component,
+            labels: it.labels,
+            outcome: "retired",
+            restored_revision: r.promotion_revision,
+            from_revision: it.current_revision,
+            effects: r.effects,
+            gift_stock_after: r.gift_stock_after,
+          });
+        } else if (it.will_write) {
           const value = valueFromJson(it.ref.type, it.inverse_value);
           const { revision } = await writeComponent(tx, p.storeId, it.ref, value, it.current_revision!);
           await tx.query(`update action_changes set recovery_status='reverted', reverted_by=$2, reverted_at=now() where id=$1`, [it.change_id, attemptId]);
@@ -330,7 +440,7 @@ export async function undoApply(p: Principal, input: ApplyInput): Promise<Record
           });
         }
       }
-      const restored = results.filter((r) => r.outcome === "restored");
+      const restored = results.filter((r) => r.outcome === "restored" || r.outcome === "retired");
       const withheld = results.filter((r) => String(r.outcome).startsWith("withheld"));
       const kept = results.filter((r) => r.outcome === "kept_by_new_decision");
       const status =
@@ -351,6 +461,7 @@ export async function undoApply(p: Principal, input: ApplyInput): Promise<Record
         restored_change_ids: restored.map((r) => r.change_id),
         withheld,
         accepted_exceptions: kept.map((k) => ({ change_id: k.change_id, component: k.component, decision: "keep_current", current_value: k.current_value })),
+        ...(results.some((r) => r.outcome === "retired") ? { purchase_aware: results.filter((r) => r.outcome === "retired").map((r) => ({ change_id: r.change_id, effects: r.effects, gift_stock_after: r.gift_stock_after })) } : {}),
         results,
         compensation_action_id: compensationActionId,
         order_snapshot_check: snap.hash === plan.order_snapshot_hash ? "unchanged" : "changed",

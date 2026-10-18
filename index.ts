@@ -15,7 +15,7 @@ import { undoCapabilities, undoHistory } from "./src/recovery/history.js";
 import { undoApply, undoPreview } from "./src/recovery/plan.js";
 import { buildReceipt, Receipt } from "./src/recovery/receipt.js";
 import { undoVerify } from "./src/recovery/verify.js";
-import { type ApprovalItem, approvalDonePage, approvalErrorPage, approvalPage, overviewPage, storefrontPage } from "./src/web/pages.js";
+import { type ApprovalItem, approvalDonePage, approvalErrorPage, approvalPage, overviewPage, pickListPage, storefrontPage } from "./src/web/pages.js";
 
 const PUBLIC_STORE = process.env.PUBLIC_DEMO_STORE_ID ?? "store_demo";
 const BASE_URL = (process.env.APP_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
@@ -32,6 +32,8 @@ const server = new MCPServer({
     "undo_apply (needs the owner's confirmation of the exact plan_hash unless a standing grant covers it) -> undo_verify (readback + preservation checks).",
     "Select changes by their recorded labels (e.g. 'premium', 'clearance', 'navigation'). Never invent before-values or inverses.",
     "A later edit to a recorded component is a conflict: ask the owner whether to keep the current value, then re-preview with keep_current_change_ids.",
+    "Gift promotions (start_gift_promotion) are purchase-aware: recovery retires the offer for new orders, releases only units the campaign still holds, and keeps every accepted order's gift committed. Never try to release or reclaim committed units.",
+    "If undo_apply returns stale_dependency_state, an order changed the counts after preview: get the owner's confirmation of the fresh plan it returns; never force or reuse the old approval.",
   ].join(" "),
   websiteUrl: BASE_URL,
   icons: [{ src: "icon.svg", mimeType: "image/svg+xml", sizes: ["512x512"] }],
@@ -135,9 +137,11 @@ export const undoExecuteTool = server.tool(
     name: "undo_execute",
     title: "UNDO execute",
     description:
-      "Two steps. (1) Pass {proposal, idempotency_key} to validate a typed rollout against price caps and allowed fields; it is recorded as awaiting the owner's approval of its proposal_hash. (2) After the owner approves, pass {rollout_id, proposal_hash, idempotency_key} to apply it atomically; every change is journaled with before/after values and revisions. You cannot supply before-values.",
+      "Two steps. (1) Pass {proposal, idempotency_key} to validate a typed rollout against price caps, allowed fields and live stock; it is recorded as awaiting the owner's approval of its proposal_hash. (2) After the owner approves, pass {rollout_id, proposal_hash, idempotency_key} to apply it atomically; every change is journaled with before/after values and revisions, and a gift promotion sets aside exactly `cap` units. You cannot supply before-values, inverses, or inventory facts.",
     inputSchema: z.object({
-      proposal: Proposal.optional().describe("Typed changes: set_price {product_id, amount_minor}, set_content {product_id, component_key:'promotional_copy', value}, set_slot {slot_id, content}"),
+      proposal: Proposal.optional().describe(
+        "Typed changes: set_price {product_id, amount_minor}, set_content {product_id, component_key:'promotional_copy', value}, set_slot {slot_id, content}, start_gift_promotion {gift_product_id, qualifying_collection, cap, title, terms}",
+      ),
       rollout_id: z.string().max(40).optional(),
       proposal_hash: z.string().length(64).optional(),
       idempotency_key: idem,
@@ -167,7 +171,7 @@ export const undoPreviewTool = server.tool(
     name: "undo_preview",
     title: "UNDO preview",
     description:
-      "Preview recovery of exact recorded change_ids from one rollout (pick them from undo_history by label). Classifies each as eligible, conflict (changed by a later writer), already_reverted, or kept_by_new_decision; atomic groups are withheld as a whole. Returns plan_id, plan_hash and expiry. Writes nothing and reserves nothing.",
+      "Preview recovery of exact recorded change_ids from one rollout (pick them from undo_history by label). Classifies each as eligible, conflict (changed by a later writer), already_reverted, or kept_by_new_decision; atomic groups are withheld as a whole. Returns plan_id, plan_hash and expiry. Writes nothing and reserves nothing. Gift promotions show purchase_dependencies: units set aside, committed to accepted orders (protected), and held/releasable; the plan is bound to those counts.",
     inputSchema: z.object({
       rollout_id: z.string().max(40),
       change_ids: z.array(changeId).min(1).max(50).describe("Recorded change_ids to withdraw"),
@@ -225,7 +229,7 @@ export const undoApplyTool = server.tool(
     name: "undo_apply",
     title: "UNDO apply",
     description:
-      "Apply a previewed plan. Requires plan_id + plan_hash and either the owner's approval_id for that exact hash, owner credentials, or a standing grant. Re-checks every component under lock: only components still at their recorded launch revision are restored (as new revisions); later edits are withheld, never overwritten. Returns restored, withheld and accepted-exception items.",
+      "Apply a previewed plan. Requires plan_id + plan_hash and either the owner's approval_id for that exact hash, owner credentials, or a standing grant. Re-checks every component under lock: only components still at their recorded launch revision are restored (as new revisions); later edits are withheld, never overwritten. Returns restored, withheld and accepted-exception items. A gift promotion is retired: closed to new orders, only campaign-held units released, accepted orders keep their gift. If orders changed the counts since preview, it returns status stale_dependency_state with a fresh plan (nothing written).",
     inputSchema: z.object({
       plan_id: z.string().max(40),
       plan_hash: z.string().length(64),
@@ -251,7 +255,7 @@ export const undoVerifyTool = server.tool(
     name: "undo_verify",
     title: "UNDO verify",
     description:
-      "Verify a recovery by readback: restored components (or 'subsequently changed'), no writes outside the restored set, unselected rollout changes and independent edits (e.g. sizing) preserved, order snapshots unchanged at the cutoff, accepted exceptions, and outstanding communications. Read-only.",
+      "Verify a recovery by readback: restored components (or 'subsequently changed'), no writes outside the restored set, unselected rollout changes and independent edits (e.g. sizing) preserved, order snapshots unchanged at the cutoff, accepted exceptions, and outstanding communications. Read-only. For gift promotions it also checks closed eligibility, a single release of the held remainder, preserved order commitments, reconciled stock books, and the pick list.",
     inputSchema: z.object({
       recovery_id: z.string().max(40).optional(),
       plan_id: z.string().max(40).optional(),
@@ -298,6 +302,7 @@ if (process.env.NODE_ENV === "production") {
 
 server.get("/", async (c) => c.html(await overviewPage(PUBLIC_STORE, `${BASE_URL}/mcp`)));
 server.get("/store", async (c) => c.html(await storefrontPage(PUBLIC_STORE)));
+server.get("/store/picklist", async (c) => c.html(await pickListPage(PUBLIC_STORE)));
 server.get("/healthz", async (c) => {
   const r = await query(`select 1 as ok`);
   return c.json({ ok: r.rows[0].ok === 1, service: "undo", version: "0.1.0", commit: process.env.GIT_COMMIT ?? process.env.MANUFACT_GIT_SHA ?? null });
@@ -361,6 +366,7 @@ const COMPONENT_LABEL: Record<string, string> = {
   "slot:premium_home": "Tile",
   "slot:clearance_home": "Tile",
   "slot:navigation": "Menu",
+  "promotion:gift_offer": "Offer",
 };
 const SLOT_TITLE: Record<string, string> = { premium_home: "Homepage premium tile", clearance_home: "Homepage clearance tile", navigation: "Navigation menu" };
 
@@ -380,10 +386,19 @@ async function approvalModel(storeId: string, kind: "launch" | "recovery", subje
   if (kind === "launch") {
     const ro = (await query(`select goal, proposal from rollouts where id=$1 and store_id=$2`, [subjectId, storeId])).rows[0];
     const titles = Object.fromEntries((await query(`select id, title from products where store_id=$1`, [storeId])).rows.map((r) => [r.id, r.title]));
-    const fmt = (v: Record<string, unknown>) => ("amount_minor" in v ? `$${(Number(v.amount_minor) / 100).toFixed(2)}` : "text" in v ? String(v.text) : String((v.content as { title?: string })?.title ?? ""));
+    const fmt = (v: Record<string, unknown>) =>
+      "amount_minor" in v
+        ? `$${(Number(v.amount_minor) / 100).toFixed(2)}`
+        : "text" in v
+          ? String(v.text)
+          : "cap" in v
+            ? `Free ${String(v.gift).replace(/^\S+ /, "")} with ${String(v.qualifying_collection)} orders · ${String(v.cap)} set aside`
+            : v.state === "none"
+              ? "No offer"
+              : String((v.content as { title?: string })?.title ?? "");
     const changes = ro.proposal.changes as Array<{ component: { type: string; id: string; key: string }; value: Record<string, unknown>; observed_value: Record<string, unknown> }>;
     const rows = changes.map((ch) => ({
-      label: ch.component.type === "slot" ? "Slot" : `${titles[ch.component.id] ?? ch.component.id}`,
+      label: ch.component.type === "slot" ? "Slot" : ch.component.type === "promotion" ? "Gift offer" : `${titles[ch.component.id] ?? ch.component.id}`,
       component: `${ch.component.type}:${ch.component.key}`,
       from: fmt(ch.observed_value),
       to: fmt(ch.value),
@@ -411,7 +426,9 @@ async function approvalModel(storeId: string, kind: "launch" | "recovery", subje
     const what = title === "Slot" ? "" : (COMPONENT_LABEL[r.component] ?? r.component).toLowerCase();
     keptByProduct.set(name, [...(keptByProduct.get(name) ?? []), what].filter(Boolean));
   }
+  const giftKept = receipt.allocations.filter((a) => a.outcome.length).map((a) => `${a.accepted_orders} accepted order${a.accepted_orders === 1 ? "" : "s"} keep their ${a.gift.toLowerCase()} (${a.committed_to_orders} unit${a.committed_to_orders === 1 ? "" : "s"} stay committed)`);
   const untouched = [
+    ...giftKept,
     ...[...keptByProduct].map(([name, parts]) => (parts.length ? `${name}: launch ${parts.join(" and ")} ${parts.length > 1 ? "stay" : "stays"}` : `${name} stays as launched`)),
     ...receipt.independent.filter((r) => r.tags.some((t) => t.startsWith("edited"))).map((r) => `${r.label.split(" · ")[0]} sizing: your team's edit stays`),
     `${orders} existing order${orders === 1 ? "" : "s"} keep their recorded prices`,
@@ -423,7 +440,12 @@ async function approvalModel(storeId: string, kind: "launch" | "recovery", subje
     store,
     headline: `Put ${n} change${n === 1 ? "" : "s"} back?`,
     lede: `From your ${goal.toLowerCase().startsWith("weekend") ? goal.toLowerCase() : `"${goal}"`}. ${kept.length ? `${kept.length} stay${kept.length === 1 ? "s" : ""} as you decided. ` : ""}${held.length ? `${held.length} changed after the launch and won't be overwritten. ` : ""}Nothing else changes.`,
-    goesBack: groupItems(back, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: r.current, to: r.original })),
+    goesBack: groupItems(back, (r) => {
+      const a = r.component === "promotion:gift_offer" ? receipt.allocations.find((x) => x.change_id === r.change_id) : undefined;
+      return a
+        ? { what: "Offer", from: `on · ${a.held_unallocated} still set aside`, to: `ended for new orders · ${a.held_unallocated} back to stock` }
+        : { what: COMPONENT_LABEL[r.component] ?? r.component, from: r.current, to: r.original };
+    }),
     stays: groupItems(kept, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: null, to: r.current, note: "Changed after the launch; kept as you asked" })),
     heldBack: groupItems(held, (r) => ({ what: COMPONENT_LABEL[r.component] ?? r.component, from: null, to: r.current, note: "Changed after the launch by someone else" })),
     untouched,

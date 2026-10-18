@@ -4,6 +4,7 @@ import { readComponent } from "../catalog/components.js";
 import { query, withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { truncate } from "../lib/util.js";
+import { activeOffers, GIFT_MAX_CAP, promotionState, retirementFacts } from "../promotions/gift.js";
 import { loadPolicy } from "./execute.js";
 
 export interface HistoryInput {
@@ -17,6 +18,11 @@ export interface HistoryInput {
 function shortValue(v: Record<string, unknown>): unknown {
   if ("text" in v) return { text: truncate(String(v.text), 160) };
   return v;
+}
+
+/** The shared pool exposes the same query interface as a transaction client for read-only adapter calls. */
+async function withTxless() {
+  return { query } as unknown as Parameters<typeof promotionState>[0];
 }
 
 /** Discoverable rollout and change metadata so a fresh agent never needs the old conversation. */
@@ -60,6 +66,11 @@ export async function undoHistory(p: Principal, input: HistoryInput): Promise<Re
         where c.rollout_id = $1 and c.store_id = $2 order by c.committed_at, c.id`,
       [r.id, p.storeId],
     );
+    const promotions = [];
+    for (const c of ch.rows.filter((x) => x.component_type === "promotion")) {
+      const st = await promotionState(await withTxless(), p.storeId, c.component_id, false);
+      if (st) promotions.push({ change_id: c.id, ...retirementFacts(st), terms: st.terms, allocation_id: st.allocation.allocation_id, retired_at: st.retired_at });
+    }
     rollouts.push({
       rollout_id: r.id,
       goal: r.goal,
@@ -81,6 +92,7 @@ export async function undoHistory(p: Principal, input: HistoryInput): Promise<Re
         after_revision: Number(c.after_revision),
         recovery_status: c.recovery_status,
       })),
+      ...(promotions.length ? { promotions } : {}),
     });
   }
   const next = rows.length > limit ? `c_${new Date(page[page.length - 1].created_at).getTime()}` : null;
@@ -102,11 +114,13 @@ export async function undoCapabilities(p: Principal): Promise<Record<string, unk
         const price = await readComponent(tx, p.storeId, { type: "price", id: pr.id, key: "price" });
         const promo = await readComponent(tx, p.storeId, { type: "content", id: pr.id, key: "promotional_copy" });
         const sizing = await readComponent(tx, p.storeId, { type: "content", id: pr.id, key: "sizing_info" });
+        const inv = (await tx.query(`select on_hand, held, committed from inventory where store_id=$1 and product_id=$2`, [p.storeId, pr.id])).rows[0];
         targets.push({
           product_id: pr.id,
           sku: pr.sku,
           title: pr.title,
           collection: pr.collection,
+          stock: inv ? { on_hand: inv.on_hand, available: inv.on_hand - inv.held - inv.committed, held_for_campaigns: inv.held, committed_to_orders: inv.committed } : null,
           price: price && price.value.kind === "price" ? { amount_minor: price.value.amount_minor, currency: price.value.currency, revision: price.revision } : null,
           promotional_copy_revision: promo?.revision ?? null,
           sizing_info_revision: sizing?.revision ?? null,
@@ -128,6 +142,8 @@ export async function undoCapabilities(p: Principal): Promise<Record<string, unk
         promotional_copy: "product promotional copy text",
         sizing_info: "product sizing text (operator-edited; rollouts may not change it)",
         slots: "premium_home, clearance_home, navigation (typed content)",
+        gift_promotion:
+          "start_gift_promotion: one free gift item per qualifying order, capped; exactly `cap` units of the gift are set aside (held) from available stock when the rollout executes",
       },
       limits: {
         max_targets_per_rollout: policy.max_targets,
@@ -137,6 +153,8 @@ export async function undoCapabilities(p: Principal): Promise<Record<string, unk
         rollout_content_keys: policy.rollout_content_keys,
         one_write_per_component_per_rollout: true,
         plan_ttl_minutes: policy.plan_ttl_minutes,
+        gift_promotion_max_cap: GIFT_MAX_CAP,
+        gifts_per_order: 1,
       },
       recovery_conditions: [
         "Recovery targets recorded change_ids from undo_history; never supply before-values yourself.",
@@ -144,11 +162,15 @@ export async function undoCapabilities(p: Principal): Promise<Record<string, unk
         "Later edits to the same component are conflicts: withheld, or kept as an owner-accepted exception.",
         "Independent components (e.g. sizing_info) are never rewritten by recovery.",
         "Order snapshots are immutable; recovery never changes existing orders.",
+        "Gift promotions are retired, not value-restored: retire_future_use closes the offer to new orders, release_remaining returns ONLY units the campaign still holds to available stock, preserve_order_commitment keeps every accepted order's gift and its committed unit.",
+        "A retirement plan is bound to the current committed/held counts. If an order accepts the gift after preview, undo_apply returns stale_dependency_state with a fresh plan that needs its own confirmation.",
+        "Guarantee boundary: one gift-rule adapter on this controlled store's inventory pool; no shipping, refunds, payments, or external platform inventory.",
         policy.recovery_grant
           ? "This store has a standing owner grant: eligible restorations may be applied without a per-plan approval."
           : "Applying a plan needs the owner's confirmation of the exact plan_hash.",
       ],
       targets,
+      active_offers: p.role === "customer" ? [] : await activeOffers(tx, p.storeId),
       slots: p.role === "customer" ? [] : slots.map((s) => ({ slot_id: s.slot_id, slot_kind: s.slot_kind, revision: Number(s.revision), title: s.content.title })),
     };
   });

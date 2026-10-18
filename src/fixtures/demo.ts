@@ -13,6 +13,8 @@ export interface FixtureProduct {
   price_minor: number;
   promo: string;
   sizing: string;
+  /** Physical units on hand (default 25). */
+  on_hand?: number;
 }
 
 /** Initial catalog. This is the test oracle's starting point; recovery uses the journal, never this file. */
@@ -25,6 +27,7 @@ export const PRODUCTS: FixtureProduct[] = [
   { key: "shorts", sku: "CLR-SRT", title: "Trail Shorts", collection: "clearance", price_minor: 3500, promo: "Quick-dry shorts with a zip pocket.", sizing: "7 in inseam." },
   { key: "cap", sku: "CLR-CAP", title: "Five-Panel Cap", collection: "clearance", price_minor: 2000, promo: "Packable cap with a sweatband.", sizing: "Adjustable strap." },
   { key: "tote", sku: "COR-TOT", title: "Canvas Market Tote", collection: "core", price_minor: 3000, promo: "Heavy canvas tote for everyday errands.", sizing: "15 x 16 in." },
+  { key: "pouch", sku: "COR-PCH", title: "Packable Travel Pouch", collection: "core", price_minor: 1800, promo: "Zip pouch that packs into its own pocket.", sizing: "One size; 8 x 6 in.", on_hand: 10 },
 ];
 
 export const SLOTS = {
@@ -140,11 +143,15 @@ export async function resetStore(spec: StoreSpec): Promise<{ storeId: string; ru
     await tx.query(`update approvals set revoked_at = coalesce(revoked_at, now()) where store_id=$1`, [s]);
     await tx.query(`update inbox_events set status='rejected', error='superseded by reset' where status in ('queued','processing') and case_id in (select id from cases where store_id=$1)`, [s]);
     await tx.query(`update outbox_messages set status='failed', error='cancelled by reset' where status='pending' and store_id=$1`, [s]);
+    await tx.query(`delete from order_entitlements where store_id=$1`, [s]);
+    await tx.query(`delete from inventory_moves where store_id=$1`, [s]);
     await tx.query(`delete from order_lines where store_id=$1`, [s]);
     await tx.query(`delete from orders where store_id=$1`, [s]);
     await tx.query(`delete from impact_reports where store_id=$1`, [s]);
     await tx.query(`delete from recovery_attempts where store_id=$1`, [s]);
     await tx.query(`delete from recovery_plans where store_id=$1`, [s]);
+    await tx.query(`delete from campaign_allocations where store_id=$1`, [s]);
+    await tx.query(`delete from promotions where store_id=$1`, [s]);
     await tx.query(`delete from action_changes where store_id=$1`, [s]);
     await tx.query(`delete from actions where store_id=$1`, [s]);
     await tx.query(`delete from approvals where store_id=$1`, [s]);
@@ -160,7 +167,7 @@ export async function resetStore(spec: StoreSpec): Promise<{ storeId: string; ru
       await tx.query(`insert into products(id, store_id, collection, sku, title) values ($1,$2,$3,$4,$5)`, [pid, s, p.collection, p.sku, p.title]);
       await tx.query(`insert into product_prices(product_id, store_id, amount_minor, currency) values ($1,$2,$3,'USD')`, [pid, s, p.price_minor]);
       await tx.query(`insert into product_content(product_id, store_id, component_key, value) values ($1,$2,'promotional_copy',$3), ($1,$2,'sizing_info',$4)`, [pid, s, p.promo, p.sizing]);
-      await tx.query(`insert into inventory(product_id, store_id, on_hand) values ($1,$2,25)`, [pid, s]);
+      await tx.query(`insert into inventory(product_id, store_id, on_hand) values ($1,$2,$3)`, [pid, s, p.on_hand ?? 25]);
     }
     for (const [kind, content] of Object.entries(SLOTS)) {
       await tx.query(`insert into store_slots(slot_id, store_id, slot_kind, content) values ($1,$2,$3,$4)`, [slotId(s, kind), s, kind, JSON.stringify(content)]);
@@ -174,6 +181,8 @@ export async function resetStore(spec: StoreSpec): Promise<{ storeId: string; ru
        values ($1,$2,$3,$4,'COR-TOT',1,3000,'USD',null,null,null)`,
       [newId("ol"), legacy, s, productId(s, "tote")],
     );
+    // The imported order already owns its unit (committed), so the stock books reconcile from the start.
+    await tx.query(`update inventory set committed = committed + 1 where store_id=$1 and product_id=$2`, [s, productId(s, "tote")]);
   });
   return { storeId: spec.storeId, runLabel };
 }
@@ -212,6 +221,31 @@ export function weekendLaunchProposal(storeId: string) {
           ],
         },
       },
+    ],
+  } as const;
+}
+
+/**
+ * The owner-authorized free-pouch experiment (purchase-aware addendum): one free Packable Travel Pouch with
+ * any premium order, capped at 10 accepted gifts (10 units set aside), plus the banner and copy announcing it.
+ * The offer and its presentation share one atomic recovery group so they are never half-retired.
+ */
+export function pouchExperimentProposal(storeId: string) {
+  const pid = (k: string) => productId(storeId, k);
+  return {
+    goal: "Free-pouch experiment: one free Packable Travel Pouch with any premium order, capped at 10 accepted gifts",
+    changes: [
+      {
+        op: "start_gift_promotion",
+        gift_product_id: pid("pouch"),
+        qualifying_collection: "premium",
+        cap: 10,
+        title: "Free travel pouch",
+        terms: "One free Packable Travel Pouch with any order that includes a premium item, while the 10 set aside last. One per order. Test store: no payment is taken.",
+        atomic_group: "pouch_offer",
+      },
+      { op: "set_slot", slot_id: slotId(storeId, "premium_home"), content: { title: "Free travel pouch with premium gear", subtitle: "One per order while the 10 set aside last", link: "/collections/premium" }, atomic_group: "pouch_offer" },
+      { op: "set_content", product_id: pid("pack"), component_key: "promotional_copy", value: "Free Packable Travel Pouch with the Summit 28L while the offer lasts.", atomic_group: "pouch_offer" },
     ],
   } as const;
 }

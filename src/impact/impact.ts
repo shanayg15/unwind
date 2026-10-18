@@ -3,6 +3,7 @@ import { requireRole } from "../auth/principals.js";
 import { withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { formatMoney, hashOf, newId } from "../lib/util.js";
+import { promotionState } from "../promotions/gift.js";
 
 export interface ImpactInput {
   rollout_id?: string;
@@ -74,6 +75,31 @@ export async function undoImpact(p: Principal, input: ImpactInput): Promise<Reco
     const start = input.cursor ? Number(/^s_(\d+)$/.exec(input.cursor)?.[1] ?? NaN) : 0;
     if (Number.isNaN(start)) throw new UndoError("invalid_input", "Bad cursor");
     const page = classified.filter((c) => Number(c.o.seq) > start).slice(0, limit);
+    // Gift promises are linked explicitly: entitlement rows carry the campaign version and allocation.
+    const pageIds = page.map((c) => c.o.id);
+    const ents = pageIds.length
+      ? (await tx.query(`select order_id, id, promotion_id, promotion_version, allocation_id, gift_sku, gift_title, quantity from order_entitlements where order_id = any($1) order by id`, [pageIds])).rows
+      : [];
+    const promoChanges = changes.filter((c) => c.component_type === "promotion" && selectedSet.has(c.id));
+    const giftCommitments = [];
+    for (const c of promoChanges) {
+      const st = await promotionState(tx, p.storeId, c.component_id, false);
+      if (!st) continue;
+      giftCommitments.push({
+        change_id: c.id,
+        promotion_id: st.promotion_id,
+        version: st.version,
+        title: st.title,
+        gift: `${st.gift_sku} ${st.gift_title}`,
+        state: st.state,
+        initially_allocated: st.allocation.initial,
+        held_unallocated: st.allocation.remaining,
+        committed_to_accepted_orders: st.committed_quantity,
+        accepted_orders: st.committed_orders,
+        gift_stock: st.stock,
+        ownership: "committed units belong to the accepted orders; only held_unallocated units belong to the campaign",
+      });
+    }
     const customerIds = [...new Set(page.map((c) => c.o.customer_principal_id).filter(Boolean))];
     const comms = customerIds.length
       ? (await tx.query(`select id, principal_id, channel, state from cases where store_id=$1 and role='customer' and principal_id = any($2)`, [p.storeId, customerIds])).rows
@@ -95,6 +121,9 @@ export async function undoImpact(p: Principal, input: ImpactInput): Promise<Reco
               ? "placed during the rollout period; no captured price link (not attributed)"
               : "no captured price provenance; unknown",
       lines: lines.map((l) => ({ sku: l.sku, quantity: l.q, unit: formatMoney(l.u), price_revision: l.rev, source_change_id: l.chg })),
+      gift_entitlements: ents
+        .filter((e) => e.order_id === o.id)
+        .map((e) => ({ entitlement_id: e.id, gift: `${e.gift_sku} ${e.gift_title}`, quantity: e.quantity, unit: formatMoney(0), promotion_id: e.promotion_id, promotion_version: e.promotion_version, allocation_id: e.allocation_id, state: "committed to this accepted order" })),
       communication_refs: comms.filter((c) => c.principal_id === o.customer_principal_id).map((c) => ({ case_id: c.id, channel: c.channel, state: c.state })),
     }));
     const lastSeq = page.length ? page[page.length - 1].o.seq : null;
@@ -113,9 +142,12 @@ export async function undoImpact(p: Principal, input: ImpactInput): Promise<Reco
       as_of: { cutoff_order_seq: cutoff, latest_order_seq: maxSeq, generated_at: new Date().toISOString() },
       coverage: `${classified.length} orders examined at or before order_seq ${cutoff} (orders after the rollout, plus any linked to it or lacking provenance)`,
       counts,
+      ...(giftCommitments.length ? { gift_commitments: giftCommitments } : {}),
       orders,
       next_cursor: hasMore ? `s_${lastSeq}` : null,
-      claims_boundary: CLAIMS_BOUNDARY,
+      claims_boundary: giftCommitments.length
+        ? `${CLAIMS_BOUNDARY} Gift commitments are identified only by recorded entitlements (campaign version + allocation), never by timestamp or customer email; "committed" means a unit is allocated to the accepted order, not that it shipped.`
+        : CLAIMS_BOUNDARY,
       mutations: "none; no messages sent",
     };
   });
@@ -133,6 +165,9 @@ async function customerView(p: Principal): Promise<Record<string, unknown>> {
         group by o.id order by o.created_at desc limit 5`,
       [p.storeId, p.principalId],
     );
+    const gifts = rows.length
+      ? (await tx.query(`select order_id, gift_title, quantity, terms from order_entitlements where order_id = any($1) order by id`, [rows.map((o) => o.id)])).rows
+      : [];
     return {
       viewer: "customer",
       scope: "your own test orders only",
@@ -143,7 +178,10 @@ async function customerView(p: Principal): Promise<Record<string, unknown>> {
         total: formatMoney(o.total_minor),
         placed_at: new Date(o.created_at).toISOString(),
         lines: (o.lines as Array<{ sku: string; title: string; q: number; u: number }>).map((l) => ({ item: l.title, quantity: l.q, unit_price: formatMoney(l.u) })),
-        note: "Order amounts are immutable snapshots; later catalog changes do not alter them.",
+        gifts: gifts
+          .filter((g) => g.order_id === o.id)
+          .map((g) => ({ item: g.gift_title, quantity: g.quantity, unit_price: formatMoney(0), status: "included and allocated in this accepted order (not yet shipped)", accepted_terms: g.terms })),
+        note: "Order amounts and accepted gifts are immutable snapshots; later catalog or promotion changes do not alter them. Allocated is not shipped.",
       })),
       mutations: "none",
     };

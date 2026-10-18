@@ -1,6 +1,7 @@
 import { readComponent, valueToJson } from "../catalog/components.js";
 import { query, withTx } from "../db/pool.js";
 import { formatMoney, truncate } from "../lib/util.js";
+import { activeOffers, pickList } from "../promotions/gift.js";
 
 export function esc(s: unknown): string {
   return String(s ?? "")
@@ -45,19 +46,52 @@ export async function storefrontPage(storeId: string): Promise<string> {
       const promo = await readComponent(tx, storeId, { type: "content", id: p.id, key: "promotional_copy" });
       const sizing = await readComponent(tx, storeId, { type: "content", id: p.id, key: "sizing_info" });
       const pj = price ? valueToJson(price.value) : null;
+      const inv = (await tx.query(`select on_hand, held, committed from inventory where store_id=$1 and product_id=$2`, [storeId, p.id])).rows[0];
+      const avail = inv ? inv.on_hand - inv.held - inv.committed : null;
+      const stockLine = inv ? `<div class="muted" style="font-size:13px" data-available="${esc(avail)}" data-held="${esc(inv.held)}">${esc(avail)} available${inv.held ? ` · ${esc(inv.held)} set aside for an offer` : ""}</div>` : "";
       cards.push(`<div class="card" data-sku="${esc(p.sku)}"><span class="tag">${esc(p.collection)}</span><span class="tag">${esc(p.sku)}</span>
-<h3 style="margin:8px 0 2px">${esc(p.title)}</h3><div class="price" data-price-rev="${esc(price?.revision)}">${pj ? esc(formatMoney(Number(pj.amount_minor))) : "-"}</div>
+<h3 style="margin:8px 0 2px">${esc(p.title)}</h3><div class="price" data-price-rev="${esc(price?.revision)}">${pj ? esc(formatMoney(Number(pj.amount_minor))) : "-"}</div>${stockLine}
 <p>${esc(promo && promo.value.kind === "text" ? promo.value.text : "")}</p><p class="muted" style="font-size:13px"><strong>Sizing:</strong> ${esc(sizing && sizing.value.kind === "text" ? sizing.value.text : "")}</p></div>`);
     }
+    const offers = await activeOffers(tx, storeId);
+    const offerHtml = offers
+      .map(
+        (o) =>
+          `<div class="card" data-offer="${esc(o.promotion_id)}" data-terms-hash="${esc(o.terms_hash)}"><span class="tag">offer</span><h3 style="margin:6px 0 2px">${esc(o.title)}</h3><div>${esc(o.terms)}</div><div class="muted" style="font-size:13px">${esc(o.remaining)} of ${esc(o.cap)} gifts left · accept it at checkout to add the gift</div></div>`,
+      )
+      .join("");
     const nav = slots.navigation?.content?.items ?? [];
     const tile = (k: string) =>
       slots[k] ? `<div class="card" data-slot="${esc(k)}"><span class="tag">${esc(k.replace("_", " "))}</span><h3 style="margin:6px 0 2px">${esc(slots[k].content.title)}</h3><div class="muted">${esc(slots[k].content.subtitle ?? "")}</div></div>` : "";
     return layout(
       store.name,
       `<h1>${esc(store.name)}</h1><nav data-slot="navigation">${nav.map((i: { label: string; link: string }) => `<a href="#">${esc(i.label)}</a>`).join("")}</nav>${LABEL}
-<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${tile("premium_home")}${tile("clearance_home")}</div>
+<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${tile("premium_home")}${tile("clearance_home")}${offerHtml}</div>
 <h2>Products</h2><div class="grid">${cards.join("")}</div>
-<p class="muted" style="margin-top:24px">Live view of store state. <a href="/">UNDO overview</a></p>`,
+<p class="muted" style="margin-top:24px">Live view of store state. <a href="/store/picklist">Pick list</a> · <a href="/">UNDO overview</a></p>`,
+    );
+  });
+}
+
+/** Pick/pack readback from immutable order snapshots and gift entitlements only (test orders, no customer data). */
+export async function pickListPage(storeId: string): Promise<string> {
+  return withTx(async (tx) => {
+    const store = (await tx.query(`select name from stores where id=$1`, [storeId])).rows[0];
+    if (!store) return layout("Pick list", "<h1>Store not found</h1>");
+    const orders = await pickList(tx, storeId);
+    const rows = orders
+      .map(
+        (o) =>
+          `<tr data-order="${esc(o.order_id)}"><td><code>${esc(o.order_id)}</code></td><td>${o.pick
+            .map((x) => `${esc(x.quantity)} × ${esc(x.title)} <span class="tag">${esc(x.kind)}</span>`)
+            .join("<br>")}</td><td class="muted">${esc(o.placed_at.slice(0, 16).replace("T", " "))}</td></tr>`,
+      )
+      .join("");
+    return layout(
+      `${store.name} pick list`,
+      `<h1>Pick list</h1>${LABEL}<p class="muted">Built only from accepted order snapshots and their recorded gift entitlements; it never looks up whether an offer is still running.</p>
+<table><thead><tr><th>Order</th><th>Pick</th><th>Placed</th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="muted">No test orders yet.</td></tr>`}</tbody></table>
+<p class="muted" style="margin-top:24px"><a href="/store">Store</a></p>`,
     );
   });
 }

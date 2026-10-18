@@ -31,12 +31,27 @@ type Receipt = {
   independent: Row[];
   impact: { direct: number; linked_unselected: number; temporal_only: number; unknown: number; as_of_seq: number };
   communications: Array<{ channel: string; purpose: string; status: string }>;
+  allocations?: Allocation[];
   generated_at: string;
+};
+type Allocation = {
+  change_id: string;
+  title: string;
+  gift: string;
+  state: string;
+  initially_allocated: number;
+  committed_to_orders: number;
+  accepted_orders: number;
+  held_unallocated: number;
+  released: number;
+  available_now: number;
+  outcome: Array<{ label: string; quantity: number | null }>;
 };
 
 const TONE: Record<string, string> = {
   eligible: "ok",
   restored: "ok",
+  retired: "ok",
   kept_at_launch_value: "ok",
   preserved_not_written_by_recovery: "ok",
   not_part_of_rollout: "muted",
@@ -89,6 +104,50 @@ function Table({ rows, showOriginal }: { rows: Row[]; showOriginal: boolean }) {
   );
 }
 
+/** One cell per unit set aside for the experiment: on an accepted order, still held, or released. */
+function GiftStock({ a, mode }: { a: Allocation; mode: "plan" | "recovery" }) {
+  const cells = [
+    ...Array.from({ length: a.committed_to_orders }, () => "order"),
+    ...Array.from({ length: a.held_unallocated }, () => (mode === "plan" ? "releasable" : "held")),
+    ...Array.from({ length: a.released }, () => "released"),
+  ];
+  return (
+    <section className="card gift">
+      <h3>
+        {a.title} · {a.gift}
+      </h3>
+      <div className="units" role="img" aria-label={`${a.initially_allocated} set aside: ${a.committed_to_orders} on accepted orders, ${a.held_unallocated} held, ${a.released} released`}>
+        {cells.map((c, i) => (
+          <span key={i} className={`unit ${c}`} />
+        ))}
+      </div>
+      <ul className="kv">
+        <li>
+          <span>Set aside for the offer</span>
+          <b>{a.initially_allocated}</b>
+        </li>
+        <li>
+          <span>Kept on {a.accepted_orders} accepted order{a.accepted_orders === 1 ? "" : "s"}</span>
+          <b>{a.committed_to_orders}</b>
+        </li>
+        <li>
+          <span>{mode === "plan" ? "Released to stock on apply" : "Still held by the offer"}</span>
+          <b>{a.held_unallocated}</b>
+        </li>
+        <li>
+          <span>Released to available stock</span>
+          <b>{a.released}</b>
+        </li>
+        <li>
+          <span>Available for ordinary sale now</span>
+          <b>{a.available_now}</b>
+        </li>
+      </ul>
+      <p className="small muted">Offer {a.state}. Accepted orders keep their gift; only units the offer still holds are released.</p>
+    </section>
+  );
+}
+
 function newKey(prefix: string) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -110,7 +169,8 @@ export function ReceiptApp() {
     const restored = receipt.rows.filter((r) => r.status === "restored" || r.status === "eligible").length;
     const conflicts = receipt.rows.filter((r) => r.status.includes("conflict") || r.status.startsWith("withheld")).length;
     const kept = receipt.rows.filter((r) => r.status === "kept_by_new_decision").length;
-    return `${receipt.mode === "plan" ? "Plan" : "Recovery"} for rollout ${receipt.rollout_id}: ${restored} ${receipt.mode === "plan" ? "eligible" : "restored"}, ${conflicts} conflict/withheld, ${kept} kept as owner exception; impact ${receipt.impact.direct} directly linked order(s).`;
+    const gifts = (receipt.allocations ?? []).map((a) => ` Gift offer ${a.title}: ${a.initially_allocated} set aside, ${a.committed_to_orders} kept on accepted orders, ${a.held_unallocated} held, ${a.released} released.`).join("");
+    return `${receipt.mode === "plan" ? "Plan" : "Recovery"} for rollout ${receipt.rollout_id}: ${restored} ${receipt.mode === "plan" ? "eligible" : "restored"}, ${conflicts} conflict/withheld, ${kept} kept as owner exception; impact ${receipt.impact.direct} directly linked order(s).${gifts}`;
   }, [receipt]);
 
   async function refresh() {
@@ -186,6 +246,17 @@ export function ReceiptApp() {
         {expired && <div className="alert warn">This plan expired. It can no longer be applied; preview again so newer edits are never overwritten.</div>}
         {partial && <div className="alert warn">Partial result: some selected changes were withheld rather than overwrite later edits.</div>}
         {actionMsg && <div className="alert">{actionMsg}</div>}
+
+        {(receipt.allocations ?? []).length > 0 && (
+          <>
+            <h2>Gift stock</h2>
+            <div className="grid tight">
+              {receipt.allocations!.map((a) => (
+                <GiftStock key={a.change_id} a={a} mode={receipt.mode} />
+              ))}
+            </div>
+          </>
+        )}
 
         <h2>Selected changes</h2>
         <Table rows={receipt.rows} showOriginal />

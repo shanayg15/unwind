@@ -31,6 +31,21 @@ async function caps(token: string) {
   return JSON.parse(line ? line.slice(6) : text).result.structuredContent as { targets: Array<{ sku: string; price: { revision: number }; sizing_info_revision: number }> };
 }
 
+if (process.argv.includes("--scenario") && process.argv[process.argv.indexOf("--scenario") + 1] === "pouch") {
+  // Free-pouch experiment: four customers' checkouts accept the offer they saw on the live storefront.
+  const html = await (await fetch(`${BASE}/store`)).text();
+  const m = /data-offer="([^"]+)" data-terms-hash="([a-f0-9]{64})"/.exec(html);
+  if (!m) throw new Error("no active offer on the storefront; launch the pouch experiment first");
+  const accept_offer = { promotion_id: m[1], terms_hash: m[2] };
+  for (const [who, sku] of [[ids.a, "PRM-JKT"], [ids.b, "PRM-SHO"], [ids.a, "PRM-KNT"], [ids.b, "PRM-PCK"]] as const) {
+    const o = await post("/api/checkout", tok(who), { items: [{ sku, quantity: 1 }], accept_offer, idempotency_key: newId("ord") });
+    console.log(`gift order ${o.order_id}: ${o.lines[0].title} ${o.total} + ${o.gift?.title ?? "no gift"} (${o.gift?.state ?? "-"})`);
+  }
+  const after = await (await fetch(`${BASE}/store`)).text();
+  const pouch = /data-sku="COR-PCH"[\s\S]*?data-available="(\d+)" data-held="(\d+)"/.exec(after);
+  console.log(`pouch stock on the storefront: ${pouch?.[1]} available, ${pouch?.[2]} still set aside for the offer`);
+  process.exit(0);
+}
 const a = await post("/api/checkout", tok(ids.a), { items: [{ sku: "PRM-JKT", quantity: 1 }], idempotency_key: newId("ord") });
 console.log(`order A ${a.order_id}: ${a.total} (${a.lines[0].price_source})`);
 const b = await post("/api/checkout", tok(ids.b), { items: [{ sku: "COR-TOT", quantity: 2 }], idempotency_key: newId("ord") });

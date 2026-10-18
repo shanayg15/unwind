@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Tx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 
-export type ComponentType = "price" | "content" | "slot";
+export type ComponentType = "price" | "content" | "slot" | "promotion";
 
 /** Declared component identity. Never an arbitrary JSON path chosen by the caller. */
 export interface ComponentRef {
@@ -65,6 +65,7 @@ export function sameValue(a: ComponentValue, b: ComponentValue): boolean {
 
 /** Read (and lock FOR UPDATE when requested) one component within the caller's store. */
 export async function readComponent(tx: Tx, storeId: string, ref: ComponentRef, lock = false): Promise<ComponentState | null> {
+  if (ref.type === "promotion") return null; // promotions are read through the gift-promotion adapter
   const forUpdate = lock ? " for update of c" : "";
   if (ref.type === "price") {
     const { rows } = await tx.query(

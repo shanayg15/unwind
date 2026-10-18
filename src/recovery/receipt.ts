@@ -2,6 +2,7 @@ import { z } from "zod";
 import { readComponent, valueToJson } from "../catalog/components.js";
 import { withTx } from "../db/pool.js";
 import { formatMoney, truncate } from "../lib/util.js";
+import { promotionState } from "../promotions/gift.js";
 
 export const ReceiptRow = z.object({
   change_id: z.string().nullable(),
@@ -14,6 +15,20 @@ export const ReceiptRow = z.object({
   current_revision: z.number().nullable(),
   status: z.string(),
   selected: z.boolean(),
+});
+
+export const GiftAllocation = z.object({
+  change_id: z.string(),
+  title: z.string(),
+  gift: z.string(),
+  state: z.string(),
+  initially_allocated: z.number(),
+  committed_to_orders: z.number(),
+  accepted_orders: z.number(),
+  held_unallocated: z.number(),
+  released: z.number(),
+  available_now: z.number(),
+  outcome: z.array(z.object({ label: z.string(), quantity: z.number().nullable() })),
 });
 
 export const Receipt = z.object({
@@ -32,6 +47,7 @@ export const Receipt = z.object({
   independent: z.array(ReceiptRow),
   impact: z.object({ direct: z.number(), linked_unselected: z.number(), temporal_only: z.number(), unknown: z.number(), as_of_seq: z.number() }),
   communications: z.array(z.object({ channel: z.string(), purpose: z.string(), status: z.string() })),
+  allocations: z.array(GiftAllocation),
   generated_at: z.string(),
 });
 export type Receipt = z.infer<typeof Receipt>;
@@ -64,8 +80,62 @@ export async function buildReceipt(storeId: string, planId: string): Promise<Rec
     ).rows;
     const rows: z.infer<typeof ReceiptRow>[] = [];
     const preserved: z.infer<typeof ReceiptRow>[] = [];
+    const allocations: z.infer<typeof GiftAllocation>[] = [];
     const selected = new Set<string>(plan.selected_change_ids);
     for (const c of changes) {
+      if (c.component_type === "promotion") {
+        const st = await promotionState(tx, storeId, c.component_id, false);
+        if (!st) continue;
+        const isSel = selected.has(c.id);
+        const pi = planItems.get(c.id);
+        const status = isSel
+          ? attempt
+            ? (outcome.get(c.id) ?? "unknown")
+            : pi
+              ? pi.group_blocked
+                ? "withheld_group"
+                : pi.will_write
+                  ? "eligible"
+                  : pi.status
+              : "unknown"
+          : st.state === "active" && st.revision === Number(c.after_revision)
+            ? "kept_at_launch_value"
+            : "changed_by_another_writer";
+        const row = {
+          change_id: c.id,
+          label: `${st.title} · gift offer`,
+          component: "promotion:gift_offer",
+          tags: c.scope_labels,
+          original: "no offer",
+          launch: `offer on · ${st.allocation.initial} set aside`,
+          current: st.state === "active" ? `on · ${st.allocation.remaining} held · ${st.committed_quantity} on orders` : `ended · ${st.committed_quantity} kept on orders`,
+          current_revision: st.revision,
+          status,
+          selected: isSel,
+        };
+        (isSel ? rows : preserved).push(row);
+        const done = attempt && outcome.get(c.id) === "retired";
+        allocations.push({
+          change_id: c.id,
+          title: st.title,
+          gift: st.gift_title,
+          state: st.state,
+          initially_allocated: st.allocation.initial,
+          committed_to_orders: st.committed_quantity,
+          accepted_orders: st.committed_orders.length,
+          held_unallocated: st.allocation.remaining,
+          released: st.allocation.released,
+          available_now: st.stock.available,
+          outcome: isSel
+            ? [
+                { label: "retire_future_use", quantity: null },
+                { label: "release_remaining", quantity: done ? st.allocation.released : st.allocation.remaining },
+                { label: "preserve_order_commitment", quantity: st.committed_quantity },
+              ]
+            : [],
+        });
+        continue;
+      }
       const cur = await readComponent(tx, storeId, { type: c.component_type, id: c.component_id, key: c.component_key });
       const label = c.title ? `${c.title} · ${c.component_type === "price" ? "price" : c.component_key.replace("_", " ")}` : `Slot · ${c.component_key.replace("_", " ")}`;
       const isSel = selected.has(c.id);
@@ -170,6 +240,7 @@ export async function buildReceipt(storeId: string, planId: string): Promise<Rec
       independent,
       impact,
       communications: [...comms, ...customerComms].map((m) => ({ channel: m.channel, purpose: m.purpose, status: m.status })),
+      allocations,
       generated_at: new Date().toISOString(),
     };
   });

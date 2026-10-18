@@ -14,6 +14,8 @@ export type UndoErrorCode =
   | "replan_required"
   | "unsupported"
   | "limit_exceeded"
+  | "offer_changed_reconfirm"
+  | "stale_dependency_state"
   | "internal";
 
 export class UndoError extends Error {
@@ -51,5 +53,7 @@ export const httpStatusFor: Record<UndoErrorCode, number> = {
   replan_required: 409,
   unsupported: 422,
   limit_exceeded: 429,
+  offer_changed_reconfirm: 409,
+  stale_dependency_state: 409,
   internal: 500,
 };

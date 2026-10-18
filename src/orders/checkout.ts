@@ -5,11 +5,19 @@ import { withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { audit, reserveKey, storeResponse } from "../lib/idempotency.js";
 import { formatMoney, hashOf, newId } from "../lib/util.js";
+import { commitOrderStock, recordEntitlement } from "../promotions/gift.js";
 
 export const CheckoutInput = z.object({
   items: z.array(z.object({ sku: z.string().max(40), quantity: z.number().int().min(1).max(5) })).min(1).max(5),
+  /** The customer saw and accepted this exact offer (terms_hash from the storefront). Never added implicitly. */
+  accept_offer: z.object({ promotion_id: z.string().max(40), terms_hash: z.string().length(64) }).optional(),
   idempotency_key: z.string().min(8).max(120),
 });
+
+/** Test-only barrier (never reachable from HTTP input). */
+export interface CheckoutTestHooks {
+  afterLock?: () => Promise<void>;
+}
 
 /**
  * Test checkout (no payment processed). The authoritative price and its revision are read
@@ -17,11 +25,11 @@ export const CheckoutInput = z.object({
  * the committed source change/rollout link when the price came from a recorded rollout change.
  * The customer cannot supply prices or rollout ids.
  */
-export async function checkout(p: Principal, raw: unknown): Promise<Record<string, unknown>> {
+export async function checkout(p: Principal, raw: unknown, hooks: CheckoutTestHooks = {}): Promise<Record<string, unknown>> {
   requireRole(p, ["customer"], "place orders");
   const input = CheckoutInput.parse(raw);
   return withTx(async (tx) => {
-    const requestHash = hashOf({ items: input.items });
+    const requestHash = hashOf({ items: input.items, offer: input.accept_offer ?? null });
     const { replay } = await reserveKey(tx, p.storeId, `checkout:${p.principalId}`, input.idempotency_key, requestHash);
     if (replay) return replay as Record<string, unknown>;
     const orderId = newId("ord");
@@ -29,7 +37,7 @@ export async function checkout(p: Principal, raw: unknown): Promise<Record<strin
     let total = 0;
     for (const item of [...input.items].sort((a, b) => a.sku.localeCompare(b.sku))) {
       const { rows } = await tx.query(
-        `select p.id, p.sku, p.title, pp.amount_minor, pp.currency, pp.revision
+        `select p.id, p.sku, p.title, p.collection, pp.amount_minor, pp.currency, pp.revision
            from products p join product_prices pp on pp.product_id = p.id
           where p.store_id = $1 and p.sku = $2 for share of pp`,
         [p.storeId, item.sku],
@@ -48,6 +56,7 @@ export async function checkout(p: Principal, raw: unknown): Promise<Record<strin
         product_id: pr.id,
         sku: pr.sku,
         title: pr.title,
+        collection: pr.collection as string,
         quantity: item.quantity,
         unit_amount_minor: pr.amount_minor,
         currency: pr.currency.trim(),
@@ -58,6 +67,15 @@ export async function checkout(p: Principal, raw: unknown): Promise<Record<strin
       total += line.unit_amount_minor * line.quantity;
       lines.push(line);
     }
+    // Same stock protocol as setup and retirement: promotion -> allocation -> inventory, all under lock.
+    const promo = await commitOrderStock(
+      tx,
+      p.storeId,
+      lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity, collection: l.collection })),
+      input.accept_offer ?? null,
+      { orderId, actor: p.principalId, idempotencyRef: input.idempotency_key },
+    );
+    if (hooks.afterLock) await hooks.afterLock();
     await tx.query(
       `insert into orders(id, store_id, customer_principal_id, status, total_minor, currency, is_test) values ($1,$2,$3,'placed_test',$4,'USD',true)`,
       [orderId, p.storeId, p.principalId, total],
@@ -69,11 +87,12 @@ export async function checkout(p: Principal, raw: unknown): Promise<Record<strin
         [l.id, orderId, p.storeId, l.product_id, l.sku, l.quantity, l.unit_amount_minor, l.currency, l.source_price_revision, l.source_change_id, l.source_rollout_id],
       );
     }
+    const gift = promo ? await recordEntitlement(tx, p.storeId, orderId, promo) : null;
     await tx.query(
       `insert into order_access_grants(id, store_id, customer_principal_id, order_id, expires_at) values ($1,$2,$3,$4, now() + interval '7 days')`,
       [newId("grant"), p.storeId, p.principalId, orderId],
     );
-    await audit(tx, p.storeId, p.principalId, "order.placed_test", { order_id: orderId, total_minor: total });
+    await audit(tx, p.storeId, p.principalId, "order.placed_test", { order_id: orderId, total_minor: total, gift_promotion: promo?.promotion_id ?? null });
     const result = {
       order_id: orderId,
       status: "placed_test",
@@ -89,8 +108,11 @@ export async function checkout(p: Principal, raw: unknown): Promise<Record<strin
         source_price_revision: l.source_price_revision,
         price_source: l.source_change_id ? "recorded rollout change" : "price not set by a rollout",
       })),
+      gift: gift
+        ? { sku: gift.gift_sku, title: gift.gift_title, quantity: 1, unit: formatMoney(0), state: "included and allocated in this accepted order", terms: gift.terms, promotion_version: gift.promotion_version }
+        : null,
     };
     await storeResponse(tx, p.storeId, `checkout:${p.principalId}`, input.idempotency_key, result);
     return result;
-  });
+  }, { writer: p.principalId });
 }

@@ -5,6 +5,7 @@ import { withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { truncate } from "../lib/util.js";
 import { orderSnapshot } from "../orders/snapshot.js";
+import { pickList, promotionState, stockAccounting } from "../promotions/gift.js";
 
 export interface VerifyInput {
   recovery_id?: string;
@@ -74,6 +75,42 @@ export async function undoVerify(p: Principal, input: VerifyInput): Promise<Reco
         state: same ? "restored" : `recovered at revision ${r.restored_revision}; subsequently changed (now revision ${cur?.revision})`,
       });
     }
+    // 1b. Purchase-aware retirements: closed to new orders, remainder released exactly once, order gifts kept,
+    //     stock books reconcile, and fulfillment still lists every promised gift from immutable order data.
+    type Effect = { label: string; quantity?: number; allocation_id?: string; order_ids?: string[] };
+    for (const r of result.results.filter((x) => x.outcome === "retired") as unknown as Array<{ change_id: string; component: string; effects: Effect[] }>) {
+      const promotionId = r.component.split(":")[1];
+      const st = await promotionState(tx, p.storeId, promotionId, false);
+      const released = r.effects.find((e) => e.label === "release_remaining");
+      const preserved = r.effects.find((e) => e.label === "preserve_order_commitment");
+      if (!st) {
+        ok = false;
+        checks.push({ check: "promotion_retired", change_id: r.change_id, passed: false, state: "promotion missing" });
+        continue;
+      }
+      const late = (await tx.query(`select count(*)::int n from order_entitlements where promotion_id=$1 and accepted_at > $2`, [promotionId, st.retired_at])).rows[0].n as number;
+      const closed = st.state === "retired" && late === 0;
+      const moves = (await tx.query(`select count(*)::int n, coalesce(sum(quantity),0)::int q from inventory_moves where allocation_id=$1 and kind='release_remaining'`, [st.allocation.allocation_id])).rows[0];
+      const releasedOnce = st.allocation.remaining === 0 && st.allocation.state === "released" && st.allocation.released === (released?.quantity ?? -1) && (released?.quantity === 0 ? moves.n === 0 : moves.n === 1 && moves.q === released?.quantity);
+      const keptIds = new Set(st.committed_orders.map((o) => o.order_id));
+      const kept = (preserved?.order_ids ?? []).every((id) => keptIds.has(id)) && st.committed_quantity === (preserved?.quantity ?? -1);
+      const books = await stockAccounting(tx, p.storeId);
+      const giftBooks = books.find((b) => b.product_id === st.gift_product_id)!;
+      const picks = (await pickList(tx, p.storeId)).flatMap((o) => o.pick.filter((x) => x.kind.startsWith("gift") && x.sku === st.gift_sku && "promotion_version" in x && x.promotion_version === st.version).map(() => o.order_id));
+      const pickOk = picks.length === st.committed_quantity;
+      if (!closed || !releasedOnce || !kept || !books.every((b) => b.balanced) || !pickOk) ok = false;
+      checks.push({ check: "future_eligibility_closed", change_id: r.change_id, passed: closed, promotion: `${st.title} v${st.version}`, state: st.state, gifts_accepted_after_retirement: late });
+      checks.push({ check: "remaining_allocation_released_once", change_id: r.change_id, passed: releasedOnce, initially_allocated: st.allocation.initial, released: st.allocation.released, release_moves: moves.n, still_held: st.allocation.remaining });
+      checks.push({ check: "order_commitments_preserved", change_id: r.change_id, passed: kept, committed_to_accepted_orders: st.committed_quantity, orders: st.committed_orders.map((o) => o.order_id) });
+      checks.push({
+        check: "stock_accounting_reconciles",
+        passed: books.every((b) => b.balanced),
+        gift: { sku: giftBooks.sku, on_hand: giftBooks.on_hand, available: giftBooks.available, held: giftBooks.held, committed: giftBooks.committed, owners: giftBooks.owners },
+        unbalanced: books.filter((b) => !b.balanced).map((b) => b.sku),
+      });
+      checks.push({ check: "fulfillment_lists_promised_gifts", passed: pickOk, gift_picks: picks.length, from: "immutable order snapshots and gift entitlements (no active-offer lookup)" });
+    }
+
     // 2. Recovery wrote nothing outside the restored set (protects sizing, clearance, navigation, other edits).
     const writes = (
       await tx.query(`select component_type, component_id, component_key, revision_after from component_writes where store_id=$1 and action_id=$2`, [p.storeId, result.compensation_action_id])
@@ -89,6 +126,17 @@ export async function undoVerify(p: Principal, input: VerifyInput): Promise<Reco
       await tx.query(`select id, component_type, component_id, component_key, scope_labels, after_revision from action_changes where rollout_id=$1 and store_id=$2`, [plan.rollout_id, p.storeId])
     ).rows.filter((c) => !selected.has(c.id));
     for (const c of others) {
+      if (c.component_type === "promotion") {
+        const st = await promotionState(tx, p.storeId, c.component_id, false);
+        checks.push({
+          check: "unselected_change_preserved",
+          change_id: c.id,
+          component: `promotion:${c.component_id}:gift_offer`,
+          labels: c.scope_labels,
+          state: st?.state === "active" && st.revision === Number(c.after_revision) ? `offer still running (${st.allocation.remaining} held, ${st.committed_quantity} committed)` : `offer ${st?.state ?? "missing"}`,
+        });
+        continue;
+      }
       const cur = await readComponent(tx, p.storeId, { type: c.component_type, id: c.component_id, key: c.component_key });
       checks.push({
         check: "unselected_change_preserved",

@@ -11,7 +11,7 @@ import { closePool, query } from "../src/db/pool.js";
 import { PRODUCTS, productId, slotId } from "../src/fixtures/demo.js";
 import { orderSnapshot } from "../src/orders/snapshot.js";
 import { withTx } from "../src/db/pool.js";
-import { evalFixture } from "../scripts/eval-fixture.js";
+import { evalExtraGiftOrder, evalFixture, evalPouchFixture } from "../scripts/eval-fixture.js";
 import { runAgent, type RunRecord } from "../worker/agent-runner.js";
 
 const S = "store_eval";
@@ -29,8 +29,16 @@ interface Case {
   id: string;
   title: string;
   prompt: string;
-  check: (r: RunRecord, ctx: { ordersHash: string }) => Promise<Array<[string, boolean]>>;
+  fixture?: "weekend" | "pouch";
+  /** Optional concurrent activity while the agent runs (e.g. an order racing its preview and apply). */
+  during?: (fx: { rolloutId: string; promotionId?: string; termsHash?: string }) => { stop: () => Promise<Record<string, unknown>> };
+  check: (r: RunRecord, ctx: { ordersHash: string; during?: Record<string, unknown> }) => Promise<Array<[string, boolean]>>;
 }
+
+const pouchStock = async () => (await query(`select on_hand, held, committed, on_hand - held - committed as available from inventory where product_id=$1`, [productId(S, "pouch")])).rows[0];
+const pouchPromo = async () => (await query(`select state from promotions where store_id=$1 order by created_at desc limit 1`, [S])).rows[0]?.state;
+const giftCount = async () => (await query(`select count(*)::int n from order_entitlements where store_id=$1`, [S])).rows[0].n as number;
+const POUCH_GOAL = "Stop the free-pouch experiment. Put the campaign pages back. Honor every accepted order and release only the unused promotional stock.";
 
 const CASES: Case[] = [
   {
@@ -107,14 +115,83 @@ const CASES: Case[] = [
   },
 ];
 
+CASES.push(
+  {
+    id: "E",
+    title: "Purchase-aware retirement: keep accepted gifts, release only unused stock",
+    fixture: "pouch",
+    prompt: `I own Trailhead Outfitters (evaluation store). ${POUCH_GOAL}`,
+    check: async (r, ctx) => {
+      const st = await pouchStock();
+      const snap = await withTx((tx) => orderSnapshot(tx, S));
+      return [
+        ["discovered rollout via undo_history", called(r, "undo_history").length > 0],
+        ["previewed before applying", called(r, "undo_preview").length > 0 && called(r, "undo_apply").length > 0],
+        ["offer closed to new orders", (await pouchPromo()) === "retired"],
+        ["4 accepted gifts still committed", st.committed === 4 && (await giftCount()) === 4],
+        ["only the 6 unused pouches released", st.held === 0 && st.available === 6],
+        ["campaign tile restored", (await slot("premium_home")).title === "New season essentials"],
+        ["pack copy restored", (await promo("pack")) === orig.pack.promo],
+        ["orders and gift snapshots byte-identical", snap.hash === ctx.ordersHash],
+        ["verify called", called(r, "undo_verify").length > 0],
+        ["no new rollout executed", called(r, "undo_execute").length === 0],
+        ["answer reports 4 kept and 6 released", /\b4\b/.test(r.final_text) && /\b6\b/.test(r.final_text)],
+      ];
+    },
+  },
+  {
+    id: "F",
+    title: "Stale dependency: an order arrives between preview and apply",
+    fixture: "pouch",
+    prompt: `I own Trailhead Outfitters (evaluation store). ${POUCH_GOAL}`,
+    // As soon as the agent's first retirement plan exists, a fifth customer accepts the gift.
+    during: (fx) => {
+      let done = false;
+      let injected: string | null = null;
+      const loop = (async () => {
+        while (!done && !injected) {
+          const plan = (await query(`select id from recovery_plans where store_id=$1 and rollout_id=$2 limit 1`, [S, fx.rolloutId])).rows[0];
+          if (plan) injected = await evalExtraGiftOrder(fx.promotionId!, fx.termsHash!);
+          else await new Promise((res) => setTimeout(res, 150));
+        }
+      })();
+      return {
+        stop: async () => {
+          done = true;
+          await loop;
+          return { injected_order: injected };
+        },
+      };
+    },
+    check: async (r, ctx) => {
+      const st = await pouchStock();
+      const superseded = (await query(`select count(*)::int n from recovery_plans where store_id=$1 and status='superseded'`, [S])).rows[0].n as number;
+      const applied = (await query(`select count(*)::int n from recovery_attempts where store_id=$1`, [S])).rows[0].n as number;
+      return [
+        ["a fifth gift order raced the plan", !!ctx.during?.injected_order],
+        ["stale plan was refused (superseded, not applied)", superseded >= 1],
+        ["exactly one retirement applied", applied === 1],
+        ["offer closed to new orders", (await pouchPromo()) === "retired"],
+        ["5 accepted gifts committed (new order kept its gift)", st.committed === 5 && (await giftCount()) === 5],
+        ["only 5 unused pouches released (not 6)", st.held === 0 && st.available === 5],
+        ["no new rollout executed", called(r, "undo_execute").length === 0],
+        ["answer reports the updated counts", /\b5\b/.test(r.final_text)],
+      ];
+    },
+  },
+);
+
 const wanted = process.argv.slice(2).filter((a) => /^[A-Z]$/.test(a));
 const results: Array<{ case: string; title: string; fixture_rollout: string; passed: boolean; checks: Array<{ name: string; ok: boolean }>; agent: Record<string, unknown>; final_text: string }> = [];
 try {
   for (const c of CASES.filter((x) => !wanted.length || wanted.includes(x.id))) {
-    const { rolloutId } = await evalFixture();
+    const fx = c.fixture === "pouch" ? await evalPouchFixture() : await evalFixture();
+    const { rolloutId } = fx;
     const ordersHash = (await withTx((tx) => orderSnapshot(tx, S))).hash;
+    const side = c.during?.(fx);
     const rec = await runAgent({ label: `eval-${c.id}`, systemPrompt: SYSTEM, prompt: c.prompt, mcpUrl: MCP_URL, mcpToken: token, maxTurns: 24 });
-    const checks = await c.check(rec, { ordersHash });
+    const during = side ? await side.stop() : undefined;
+    const checks = await c.check(rec, { ordersHash, during });
     const passed = checks.every(([, ok]) => ok);
     results.push({
       case: c.id,

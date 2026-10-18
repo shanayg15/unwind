@@ -17,6 +17,7 @@ import { setActionId, withTx } from "../db/pool.js";
 import { UndoError } from "../lib/errors.js";
 import { audit, reserveKey, storeResponse } from "../lib/idempotency.js";
 import { formatMoney, hashOf, newId } from "../lib/util.js";
+import { type NormalizedPromotion, normalizePromotion, StartGiftPromotion, startPromotion } from "../promotions/gift.js";
 
 const ATOMIC = z
   .string()
@@ -46,6 +47,7 @@ export const ProposalChange = z.discriminatedUnion("op", [
     content: SlotContent,
     atomic_group: ATOMIC,
   }),
+  StartGiftPromotion,
 ]);
 export type ProposalChange = z.infer<typeof ProposalChange>;
 
@@ -57,7 +59,8 @@ export type Proposal = z.infer<typeof Proposal>;
 
 interface NormalizedChange {
   ref: ComponentRef;
-  value: ComponentValue;
+  value: ComponentValue | null;
+  promotion?: NormalizedPromotion;
   observed_revision: number;
   observed_value: Record<string, unknown>;
   scope_labels: string[];
@@ -76,6 +79,7 @@ export async function loadPolicy(tx: Tx, storeId: string): Promise<StorePolicy> 
 function refFor(c: ProposalChange): ComponentRef {
   if (c.op === "set_price") return { type: "price", id: c.product_id, key: "price" };
   if (c.op === "set_content") return { type: "content", id: c.product_id, key: c.component_key };
+  if (c.op === "start_gift_promotion") return { type: "promotion", id: `new:${c.gift_product_id}`, key: "gift_offer" };
   return { type: "slot", id: c.slot_id, key: "" };
 }
 
@@ -103,6 +107,23 @@ async function normalize(tx: Tx, storeId: string, policy: StorePolicy, proposal:
     pending.push({ change, ref });
   }
   for (const { change, ref } of sortRefs(pending.map((p) => ({ ...p, ref: p.ref })))) {
+    if (change.op === "start_gift_promotion") {
+      // Purchase-aware adapter: validated against live stock; the allocation is reserved at execution.
+      const n = await normalizePromotion(tx, storeId, policy, change, lock);
+      out.push({
+        ref,
+        value: null,
+        promotion: n,
+        observed_revision: 0,
+        observed_value: { state: "none" },
+        scope_labels: ["promotion", "gift_offer", "experiment"],
+        group: change.atomic_group ?? null,
+        product_id: n.gift_product_id,
+        check: `sets aside ${n.cap} of ${n.available_before} available ${n.gift_title}; one gift per qualifying ${n.qualifying_collection} order`,
+        discount_pct: null,
+      });
+      continue;
+    }
     const cur = await readComponent(tx, storeId, ref, lock);
     if (!cur) throw new UndoError("not_found", `Unknown component ${refKey(ref)}`, { component: refKey(ref) });
     let value: ComponentValue;
@@ -163,6 +184,10 @@ async function normalize(tx: Tx, storeId: string, policy: StorePolicy, proposal:
   return out;
 }
 
+function promotionValue(n: NormalizedPromotion) {
+  return { gift_product_id: n.gift_product_id, gift: `${n.gift_sku} ${n.gift_title}`, qualifying_collection: n.qualifying_collection, cap: n.cap, title: n.title, terms: n.terms, terms_hash: n.terms_hash };
+}
+
 export interface ExecuteInput {
   proposal?: Proposal;
   rollout_id?: string;
@@ -195,7 +220,7 @@ async function propose(p: Principal, proposal: Proposal, key: string) {
       goal: parsed.goal,
       changes: changes.map((c) => ({
         component: c.ref,
-        value: valueToJson(c.value),
+        value: c.promotion ? promotionValue(c.promotion) : valueToJson(c.value!),
         observed_revision: c.observed_revision,
         observed_value: c.observed_value,
         scope_labels: c.scope_labels,
@@ -262,7 +287,17 @@ async function run(p: Principal, rolloutId: string, proposalHash: string, key: s
       const reproposal: Proposal = {
         goal: recorded.goal,
         changes: recorded.changes.map((c) =>
-          c.component.type === "price"
+          c.component.type === "promotion"
+            ? {
+                op: "start_gift_promotion" as const,
+                gift_product_id: String(c.value.gift_product_id),
+                qualifying_collection: c.value.qualifying_collection as "premium",
+                cap: Number(c.value.cap),
+                title: String(c.value.title),
+                terms: String(c.value.terms),
+                atomic_group: c.group ?? undefined,
+              }
+            : c.component.type === "price"
             ? { op: "set_price" as const, product_id: c.component.id, amount_minor: Number(c.value.amount_minor), atomic_group: c.group ?? undefined }
             : c.component.type === "content"
               ? { op: "set_content" as const, product_id: c.component.id, component_key: c.component.key as "promotional_copy", value: String(c.value.text), atomic_group: c.group ?? undefined }
@@ -291,7 +326,17 @@ async function run(p: Principal, rolloutId: string, proposalHash: string, key: s
       const changes: Record<string, unknown>[] = [];
       let writes = 0;
       for (const c of current) {
-        const { revision } = await writeComponent(tx, p.storeId, c.ref, c.value, c.observed_revision);
+        let revision: number;
+        let componentId = c.ref.id;
+        let after = c.value ? valueToJson(c.value) : {};
+        if (c.promotion) {
+          const started = await startPromotion(tx, p.storeId, rolloutId, actionId, p.principalId, c.promotion);
+          revision = started.revision;
+          componentId = started.promotion_id;
+          after = { state: "active", promotion_id: started.promotion_id, allocation_id: started.allocation_id, ...promotionValue(c.promotion), set_aside: c.promotion.cap };
+        } else {
+          revision = (await writeComponent(tx, p.storeId, c.ref, c.value!, c.observed_revision)).revision;
+        }
         writes++;
         if (hooks.failAfterWrites !== undefined && writes >= hooks.failAfterWrites) {
           throw new Error("injected failure after write (test hook)");
@@ -312,24 +357,24 @@ async function run(p: Principal, rolloutId: string, proposalHash: string, key: s
             rolloutId,
             p.storeId,
             c.ref.type,
-            c.ref.id,
+            componentId,
             c.ref.key,
             c.product_id,
             c.scope_labels,
             groupId,
             JSON.stringify(c.observed_value),
-            JSON.stringify(valueToJson(c.value)),
+            JSON.stringify(after),
             c.observed_revision,
             revision,
           ],
         );
         changes.push({
           change_id: changeId,
-          component: refKey(c.ref),
+          component: refKey({ ...c.ref, id: componentId }),
           labels: c.scope_labels,
           group_id: groupId,
           before: c.observed_value,
-          after: valueToJson(c.value),
+          after,
           before_revision: c.observed_revision,
           after_revision: revision,
         });

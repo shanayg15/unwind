@@ -63,3 +63,11 @@ button:disabled { opacity: 0.6; cursor: default; }
 .skeleton { height: 120px; border-radius: 8px; background: linear-gradient(90deg, var(--line), transparent, var(--line)); background-size: 200% 100%; animation: sk 1.2s infinite; }
 @keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (max-width: 560px) { th:nth-child(2), td:nth-child(2) { display: none; } }
+
+.grid.tight { margin-top: 0; }
+.units { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 10px; }
+.unit { width: 18px; height: 18px; border-radius: 4px; border: 1px solid var(--line); }
+.unit.order { background: var(--accent); border-color: var(--accent); }
+.unit.held { background: var(--warn-bg); border-color: var(--warn); }
+.unit.releasable { background: repeating-linear-gradient(45deg, var(--warn-bg), var(--warn-bg) 3px, transparent 3px, transparent 6px); border-color: var(--warn); }
+.unit.released { background: transparent; border-style: dashed; }

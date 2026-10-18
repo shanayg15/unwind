@@ -16,6 +16,7 @@ const tokens: Record<string, string> = JSON.parse(readFileSync(".private/tokens.
 const agentToken = tokens[`${STORE}:${STORE === "store_eval" ? "pr_evaluator" : "pr_agent"}`];
 const ownerId = STORE === "store_eval" ? "pr_eval_owner" : "pr_owner";
 const ownerLink = process.argv.includes("--owner-link");
+const scenario = process.argv.includes("--scenario") ? process.argv[process.argv.indexOf("--scenario") + 1] : "weekend";
 
 export const BRIEF = `Weekend launch brief (owner-approved plan to propose):
 - Premium collection: 10% off every premium product price (round to the cent).
@@ -25,6 +26,13 @@ export const BRIEF = `Weekend launch brief (owner-approved plan to propose):
 - Navigation: items New arrivals (/collections/premium), Premium (/collections/premium), Clearance (/collections/clearance), Size guide (/size-guide); title "Main navigation", link "/".
 - Do not change the Canvas Market Tote or any sizing information.`;
 
+export const POUCH_BRIEF = `Free-pouch experiment brief (owner-approved plan to propose):
+- Gift offer: one free Packable Travel Pouch with any order that includes a premium item, capped at 10 accepted gifts (set aside 10 pouches). Title "Free travel pouch". Terms: "One free Packable Travel Pouch with any order that includes a premium item, while the 10 set aside last. One per order. Test store: no payment is taken."
+- Homepage: premium tile title "Free travel pouch with premium gear" (subtitle "One per order while the 10 set aside last", link /collections/premium).
+- Promotional copy on the Summit 28L Pack: "Free Packable Travel Pouch with the Summit 28L while the offer lasts."
+- The offer, the premium tile and the pack copy announce the same offer: put all three in one atomic recovery group "pouch_offer" so they are never half-withdrawn.
+- Do not change any price, the clearance tile, navigation, or sizing information.`;
+
 const SYSTEM = `You are a shop agent. You change the store only through the UNDO MCP tools. Build exact typed changes from undo_capabilities (product_id, slot_id, current prices) and the brief. Never change anything the brief does not ask for.`;
 
 async function main() {
@@ -32,7 +40,7 @@ async function main() {
   const propose = await runAgent({
     label: `launch-propose-${STORE}`,
     systemPrompt: SYSTEM,
-    prompt: `${BRIEF}\n\nCall undo_capabilities, then submit the full proposal with ONE undo_execute call ({proposal: {goal, changes}, idempotency_key}). It will wait for the owner's approval; report the rollout_id and proposal_hash.`,
+    prompt: `${scenario === "pouch" ? POUCH_BRIEF : BRIEF}\n\nCall undo_capabilities, then submit the full proposal with ONE undo_execute call ({proposal: {goal, changes}, idempotency_key}). It will wait for the owner's approval; report the rollout_id and proposal_hash.`,
     mcpUrl: MCP_URL,
     mcpToken: agentToken,
     maxTurns: 10,
@@ -46,7 +54,7 @@ async function main() {
     const owner = (await query(`select id from principals where id=$1`, [ownerId])).rows[0];
     await query(
       `insert into outbox_messages(id, store_id, dedupe_key, channel, recipient_principal_id, purpose, body) values ($1,$2,$3,'imessage',$4,'request_approval',$5)`,
-      [newId("msg"), STORE, `launch:${ro.id}`, owner.id, `Launch ready for your approval: ${(ro.proposal.changes as unknown[]).length} recorded changes (premium 10% off, clearance 20% off, weekend copy, homepage tiles, navigation). All within price caps.\n\nApprove this exact launch: ${base}/approve/${req.token}`],
+      [newId("msg"), STORE, `launch:${ro.id}`, owner.id, (scenario === "pouch" ? `Free-pouch experiment ready for your approval: one free travel pouch with premium orders, 10 set aside, plus the homepage tile and pack copy. Approve: ${base}/approve/${req.token}` : `Launch ready for your approval: ${(ro.proposal.changes as unknown[]).length} recorded changes (premium 10% off, clearance 20% off, weekend copy, homepage tiles, navigation). All within price caps.\n\nApprove this exact launch: ${base}/approve/${req.token}`)],
     );
     console.log("[launch] approval link queued for the owner; the worker delivers it. Waiting up to 20 min for approval...");
     for (let i = 0; i < 240; i++) {
