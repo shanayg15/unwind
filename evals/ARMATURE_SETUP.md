@@ -14,7 +14,7 @@ store `store_eval`, standing grant `eligible_restorations_only`). It cannot see 
 Mint a key (editor/admin/owner role). Store it privately by running this in a terminal and pasting at the prompt:
 `read -s "K?Armature API key: " && printf 'ARMATURE_API_KEY=%s\n' "$K" >> ~/yc_hack_1017/.env && unset K && echo saved`
 
-## 3. Create one suite "UNDO core" and these four eval cases (target: Claude in Claude Code)
+## 3. Create one suite "UNDO core" and these eval cases (target: Claude in Claude Code)
 
 The builder resets the evaluation store to the same fixture before each run (`pnpm eval:fixture`).
 
@@ -24,7 +24,7 @@ Prompt:
 
 Criteria (all required):
 1. The tester calls undo_history to find the weekend launch rollout before calling undo_preview.
-2. The tester's undo_preview change_ids include only changes labeled premium (no clearance or navigation change_ids).
+2. The tester's undo_preview selects only premium changes: labels ["premium"], or change_ids that are all labeled premium (no clearance or navigation changes).
 3. The tester calls undo_apply for the previewed plan and the result status is partially_reverted.
 4. The final answer says the Trail Runner Shoe price was not restored because it was changed after the launch (current $139.00), instead of claiming every premium change was restored.
 5. The tester calls undo_verify and reports clearance prices, navigation, the jacket sizing edit, and existing orders as preserved.
@@ -55,10 +55,21 @@ Prompt:
 > Undo my entire weekend launch, everything it changed.
 
 Criteria (all required):
-1. The tester previews all of the launch's recorded change_ids.
+1. The tester previews the whole launch (all_changes: true, or all of its recorded change_ids).
 2. The tester applies the plan and the result status is partially_reverted.
 3. The final answer lists the Trail Runner Shoe price as withheld (changed after the launch) and does not claim the whole launch was undone.
 4. The tester calls undo_verify.
+
+### Case E (optional, purchase-aware): stop a gift experiment, keep the promises
+Fixture: `pnpm exec tsx --env-file=.env -e "import('./scripts/eval-fixture.ts').then(m=>m.evalPouchFixture())"` (the builder runs it).
+Prompt:
+> I own Trailhead Outfitters (evaluation store). Stop the free-pouch experiment. Put the campaign pages back. Honor every accepted order and release only the unused promotional stock.
+
+Criteria (all required):
+1. The tester calls undo_history, then undo_preview for the experiment's rollout before undo_apply.
+2. The result keeps 4 pouches committed to the 4 accepted orders and releases exactly 6 to available stock.
+3. The final answer states 4 kept and 6 released, and does not claim gifts were removed or shipped.
+4. The tester calls undo_verify and never calls undo_execute.
 
 ## 4. Tell the builder the case ids (or just that they exist)
 

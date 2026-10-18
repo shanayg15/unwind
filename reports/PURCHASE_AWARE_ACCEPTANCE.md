@@ -1,6 +1,6 @@
 # Purchase-aware rollback: acceptance
 
-Commit `79de150` · generated 2026-10-18T01:22:43.939Z
+Commit `8fcc5c5` · generated 2026-10-18T04:28:20.970Z
 
 Scope: one gift-promotion adapter (`start_gift_promotion`) on the controlled demo store's own inventory pool, and its relationship to accepted test orders. No shipping, payments, refunds, external platform inventory or general bundles. A handful of fixtures does not certify production safety.
 
@@ -17,7 +17,7 @@ Scope: one gift-promotion adapter (`start_gift_promotion`) on the controlled dem
 | PA09 | Crash / response timeout | **passed** | tests/integration/purchase-aware.test.ts: PA09 crash and response timeout > a failure after the retirement writes rolls back everything; the retry applies exactly once |
 | PA10 | Fresh agent and real conversation | **passed** | eval case E: passed (undo__undo_capabilities, undo__undo_history, undo__undo_preview, undo__undo_apply, undo__undo_verify)<br>eval case F: passed<br>reports/runs/pouch-1.json (real owner iMessage + customer email, verify verified) |
 | PA11 | Scope/auth bypass denied | **passed** | tests/integration/purchase-aware.test.ts: PA11 scope and authorization bypass > committed stock and gift entitlements cannot be released or altered outside the protocol<br>tests/integration/purchase-aware.test.ts: PA11 scope and authorization bypass > customers cannot preview, apply, or see other orders; setup cannot over-allocate; non-qualifying carts get no gift<br>tests/integration/purchase-aware.test.ts: PA11 scope and authorization bypass > a coupled presentation conflict withholds the whole offer group instead of half-retiring it |
-| PA12 | Regression and rehearsal | **passed** | 82 unit/integration/security tests passing, including the original U-series recovery tests |
+| PA12 | Regression and rehearsal | **passed** | 86 unit/integration/security tests passing, including the original U-series recovery tests |
 
 ## Invariants checked by `undo_verify` after every retirement
 

@@ -1,46 +1,46 @@
 {
-  "generated_at": "2026-10-18T03:03:46.178Z",
+  "generated_at": "2026-10-18T04:28:10.923Z",
   "release_status": "DEMO_READY_WITH_LIMITS_OR_BUILDING",
   "gates": [
     {
       "name": "typecheck",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 663
     },
     {
       "name": "unit",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 554
     },
     {
       "name": "integration",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 712210
     },
     {
       "name": "security",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 32848
     },
     {
       "name": "build",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 1013
     },
     {
       "name": "mcp-deployed",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 6049
     },
     {
       "name": "smoke-deployed",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 6263
     },
     {
       "name": "setup-check",
-      "ok": null,
-      "ms": null
+      "ok": true,
+      "ms": 4279
     }
   ],
   "e2e": true,
@@ -77,6 +77,9 @@
         "reports/runs/live-1-owner-imessage-and-customer-email.json",
         "reports/runs/live-1-owner-imessage.json",
         "reports/runs/live-2-owner-voice.json",
+        "reports/runs/rehearsal-1.json",
+        "reports/runs/rehearsal-2.json",
+        "reports/runs/rehearsal-3.json",
         "reports/eval-agent.json case A"
       ]
     },
@@ -207,14 +210,20 @@
       "evidence": [
         "reports/runs/live-1-owner-imessage-and-customer-email.json (owner iMessage, approved scope reduction: iMessage for SMS)",
         "reports/runs/live-1-owner-imessage.json (owner iMessage, approved scope reduction: iMessage for SMS)",
-        "reports/runs/live-2-owner-voice.json (owner iMessage, approved scope reduction: iMessage for SMS)"
+        "reports/runs/live-2-owner-voice.json (owner iMessage, approved scope reduction: iMessage for SMS)",
+        "reports/runs/rehearsal-1.json (owner iMessage, approved scope reduction: iMessage for SMS)",
+        "reports/runs/rehearsal-2.json (owner iMessage, approved scope reduction: iMessage for SMS)",
+        "reports/runs/rehearsal-3.json (owner iMessage, approved scope reduction: iMessage for SMS)"
       ]
     },
     {
       "id": "U21",
       "status": "passed",
       "evidence": [
-        "reports/runs/live-1-owner-imessage-and-customer-email.json (customer email thread)"
+        "reports/runs/live-1-owner-imessage-and-customer-email.json (customer email thread)",
+        "reports/runs/rehearsal-1.json (customer email thread)",
+        "reports/runs/rehearsal-2.json (customer email thread)",
+        "reports/runs/rehearsal-3.json (customer email thread)"
       ]
     },
     {
@@ -224,7 +233,10 @@
         "reports/eval-agent.json (fresh agent, deployed MCP, no launch transcript)",
         "reports/runs/live-1-owner-imessage-and-customer-email.json",
         "reports/runs/live-1-owner-imessage.json",
-        "reports/runs/live-2-owner-voice.json"
+        "reports/runs/live-2-owner-voice.json",
+        "reports/runs/rehearsal-1.json",
+        "reports/runs/rehearsal-2.json",
+        "reports/runs/rehearsal-3.json"
       ]
     },
     {
@@ -246,8 +258,12 @@
     },
     {
       "id": "U25",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "reports/runs/rehearsal-1.json",
+        "reports/runs/rehearsal-2.json",
+        "reports/runs/rehearsal-3.json"
+      ]
     },
     {
       "id": "U26",
@@ -258,6 +274,7 @@
         "tests/integration/ax.test.ts: U26 agent-friendly selection > bad selections fail with a usable hint",
         "tests/integration/ax.test.ts: U26 agent-friendly selection > history summarizes labels and points to the next call",
         "tests/integration/ax.test.ts: U26 safe default idempotency > apply without a key applies once; the same call again replays the stored outcome",
+        "tests/integration/ax.test.ts: U26 safe default idempotency > apply accepts the owner's approval_id alone (the approval binds the exact plan hash)",
         "tests/integration/ax.test.ts: U26 safe default idempotency > proposing the same rollout twice without a key records it once",
         "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U05/U26/U11 exact restoration with new revisions; sizing edit and orders untouched"
       ]

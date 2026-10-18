@@ -47,9 +47,9 @@ const CASES: Case[] = [
     prompt:
       "I own Trailhead Outfitters (evaluation store). My shop agent ran a weekend launch earlier. I've changed my mind about part of it: withdraw the premium part of that launch. Put the premium prices, premium promotional copy and the premium homepage tile back the way they were before the launch. Keep the clearance discounts, the new navigation and all existing orders exactly as they are, and don't overwrite anything someone changed after the launch. Use the UNDO tools and tell me exactly what was restored and what was not.",
     check: async (r, ctx) => {
-      const previews = called(r, "undo_preview");
-      const lastPreview = previews[previews.length - 1]?.input as { change_ids?: string[] } | undefined;
-      const sel = lastPreview?.change_ids ?? [];
+      // What was actually selected: the applied plan's recorded selection (agents may pick by labels or ids).
+      const applied = (await query(`select p.selected_change_ids from recovery_attempts a join recovery_plans p on p.id=a.plan_id where a.store_id=$1 order by a.created_at desc limit 1`, [S])).rows[0];
+      const sel: string[] = applied?.selected_change_ids ?? [];
       const labels = sel.length ? (await query(`select scope_labels from action_changes where id = any($1)`, [sel])).rows.map((x) => x.scope_labels as string[]) : [];
       const snap = await withTx((tx) => orderSnapshot(tx, S));
       return [

@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-18T04:12:39.826Z",
+  "results": [
+    {
+      "provider": "Manufact",
+      "check": "deployed health",
+      "pass": true,
+      "detail": "HTTP 200, commit n/a"
+    },
+    {
+      "provider": "Manufact",
+      "check": "MCP refuses unauthenticated calls",
+      "pass": true,
+      "detail": "HTTP 401"
+    },
+    {
+      "provider": "Manufact",
+      "check": "authenticated tools/list",
+      "pass": true,
+      "detail": "undo_capabilities, undo_history, undo_execute, undo_preview, undo_impact, undo_apply, undo_verify"
+    },
+    {
+      "provider": "Neon",
+      "check": "migrations and stores",
+      "pass": true,
+      "detail": "4 migrations; stores store_demo,store_eval"
+    },
+    {
+      "provider": "Inkbox",
+      "check": "identity, mailbox, iMessage, subscriptions",
+      "pass": true,
+      "detail": "mailbox present, imessage true, events imessage.received/message.received/call.ended"
+    },
+    {
+      "provider": "Inkbox",
+      "check": "latest real deliveries",
+      "pass": true,
+      "detail": "email=delivered, imessage=delivered, imessage=delivered, imessage=delivered, imessage=delivered, imessage=delivered"
+    },
+    {
+      "provider": "Claude",
+      "check": "local headless login answers",
+      "pass": true,
+      "detail": "result \"OK\""
+    }
+  ]
+}

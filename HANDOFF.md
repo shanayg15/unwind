@@ -19,6 +19,6 @@ Deploys: pushing main auto-deploys through the Manufact GitHub App (`pnpm deploy
 Approvals: owner replies "YES <code>" by text (worker code checks it) or uses the optional link page.
 Headless Chromium for `mcp-use screenshot`: started on DevTools port 9333 (profile in the session scratchpad); restart with the Playwright Chromium binary if gone.
 
-Exact next action (19:55): Armature (user steps in evals/ARMATURE_SETUP.md; then run cases A–F via its API with eval:fixture resets) -> three rehearsals on the release build -> labeled backup recording -> reports/FINAL_VERIFICATION.md.
-Done: live pouch run (reports/runs/pouch-1.json; PA01–PA12 pass) and live owner call V01 (reports/runs/live-2-owner-voice.json; V01–V05 pass, 1/6 calls used). Rehearsal emails left: 2.
+Exact next action (21:30): Armature only (U24). User does evals/ARMATURE_SETUP.md steps 1-3; then run cases via POST /api/armature/v1/workflows/<case id>/runs with `pnpm eval:fixture` (or evalPouchFixture for E) before each mutating case, record reports/armature.json (run ids + outcomes + DB checks), rerun `scripts/verify-all.ts --aggregate` and `scripts/final-report.ts`.
+Everything else is done: 3 rehearsals (reports/runs/rehearsal-{1,2,3}.json), V01 call, pouch run, final report, docs. Rehearsal emails used 4/4; owner-text automation approval covered rehearsals 2-3 only (shop thread +1 937-896-2724, script scripts/rehearsal-drive.ts).
 Not yet written: scripts/provider-smoke.ts (test:providers).

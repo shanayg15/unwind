@@ -57,7 +57,7 @@
   },
   "deployed": {
     "url": "https://bold-cloud-77gfl.run.mcp-use.com/mcp",
-    "at": "2026-10-18T01:25:36.389Z",
+    "at": "2026-10-18T04:28:00.344Z",
     "results": [
       {
         "check": "unauthenticated initialize rejected",
@@ -92,7 +92,7 @@
       {
         "check": "capabilities result bounded",
         "pass": true,
-        "detail": "13061 bytes"
+        "detail": "13093 bytes"
       },
       {
         "check": "undo_history callable",
