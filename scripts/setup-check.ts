@@ -43,17 +43,29 @@ try {
 try {
   const inkbox = new Inkbox({ apiKey: process.env.INKBOX_API_KEY! });
   const id = await inkbox.getIdentity(process.env.INKBOX_IDENTITY ?? "yc-hack-shanay");
-  const subs = (await (inkbox.webhooks.subscriptions as unknown as { list(o: object): Promise<Array<{ url: string }>> }).list({})) as Array<{ url: string; status?: string }>;
-  const mine = subs.filter((s) => s.url === `${BASE}/webhooks/inkbox` && (s.status ?? "active") === "active").length;
+  const subs = (await (inkbox.webhooks.subscriptions as unknown as { list(o: object): Promise<Array<{ url: string }>> }).list({})) as Array<{ url: string; status?: string; eventTypes?: string[] }>;
+  const mineSubs = subs.filter((s) => s.url === `${BASE}/webhooks/inkbox` && (s.status ?? "active") === "active");
+  const covered = new Set(mineSubs.flatMap((s) => s.eventTypes ?? []));
+  const needed = ["imessage.received", "message.received", ...(process.env.OWNER_VOICE_ENABLED === "true" ? ["call.ended"] : [])];
+  const missing = needed.filter((t) => !covered.has(t));
   add("Inkbox identity + mailbox", !!id.emailAddress, `@${process.env.INKBOX_IDENTITY} mailbox ${String(id.emailAddress).replace(/^(.{3}).*@/, "$1…@")}; imessage ${id.imessageEnabled}`);
-  add("Inkbox webhook subscription to UNDO receiver", mine === 1, `${mine} subscription(s) to /webhooks/inkbox`);
+  add("Inkbox webhook subscriptions to UNDO receiver", missing.length === 0, `${mineSubs.length} active subscription(s) to /webhooks/inkbox covering ${needed.filter((t) => covered.has(t)).join(", ")}${missing.length ? `; MISSING ${missing.join(", ")}` : ""}`);
 } catch (e) {
   add("Inkbox identity + mailbox", false, (e as Error).message.slice(0, 120));
 }
 
 const lim = await query(`select used, cap from usage_counters where name='live_messages'`).catch(() => ({ rows: [] as Array<{ used: number; cap: number }> }));
 add("live message budget", true, lim.rows[0] ? `${lim.rows[0].used}/${lim.rows[0].cap} used` : `0/${process.env.MAX_LIVE_MESSAGES} used`, false);
-add("owner voice", "warn", `OWNER_VOICE_ENABLED=${process.env.OWNER_VOICE_ENABLED ?? "false"} (NOT_ENABLED)`, false);
+const calls = await query(`select used, cap from usage_counters where name='live_calls'`).catch(() => ({ rows: [] as Array<{ used: number; cap: number }> }));
+const liveCall = await query(`select count(*)::int n from voice_sessions where provider_call_id is not null and status='ended'`).catch(() => ({ rows: [{ n: 0 }] }));
+add(
+  "owner voice",
+  process.env.OWNER_VOICE_ENABLED === "true" ? true : "warn",
+  process.env.OWNER_VOICE_ENABLED === "true"
+    ? `${liveCall.rows[0].n > 0 ? "VERIFIED" : "ENABLED_UNTESTED"}: contact_scoped per call, ${calls.rows[0]?.used ?? 0}/${process.env.MAX_LIVE_CALLS} calls used, ${process.env.MAX_CALL_DURATION_SECONDS}s limit`
+    : "NOT_ENABLED",
+  false,
+);
 add("Armature API key", process.env.ARMATURE_API_KEY ? true : "warn", process.env.ARMATURE_API_KEY ? "present (not shown)" : "not set; see evals/ARMATURE_SETUP.md", false);
 
 if (process.argv.includes("--model")) {
