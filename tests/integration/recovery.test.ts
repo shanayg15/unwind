@@ -216,7 +216,7 @@ describe("UNDO engine on real Postgres (Neon test branch)", () => {
     expect(ordersAfter).toEqual(ordersBefore);
   });
 
-  it("verify derives its verdict from receipts plus readback", async () => {
+  it("verify derives its verdict from receipts plus readback (U30 post-recovery edit reported)", async () => {
     const v = (await undoVerify(a.agent, { recovery_id: recoveryId })) as { verdict: string; checks: Array<{ check: string; passed?: boolean; state?: string }> };
     expect(v.verdict).toBe("verified");
     expect(v.checks.find((c) => c.check === "independent_sizing_preserved")?.passed).toBe(true);

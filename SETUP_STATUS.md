@@ -11,7 +11,7 @@ Approved owner/customer contacts and consent: NOT_APPROVED (proposal: owner = hi
 Target adapter: controlled Postgres storefront
 Owner channel: iMessage via Inkbox shared router (SMS would need a newly provisioned number; substitution needs approval)
 Customer channel: email
-Voice: NOT_ENABLED
+Voice: VERIFIED (enabled 2026-10-17: ≤6 calls, ≤180 s, owner only, contact_scoped per call)
 
 | Dependency | Status | Redacted probe evidence | Specific user action if blocked | Verified at |
 |---|---|---|---|---|
@@ -31,8 +31,8 @@ Voice: NOT_ENABLED
 | Transactional Postgres + typed writers | READY (access), project not created | Neon CLI 8.8.0 (`neon`, via pnpm global) signed in: profile DEFAULT, OAuth, account scope. Project-level Neon MCP (`.mcp.json`, OAuth, URL only) and skills `neon` + `neon-postgres` installed in `.claude/skills/`. Supabase new project = $10/month, not used. | Approve creating one free Neon project for UNDO | 14:27 |
 | Durable inbox/outbox worker + restart | NOT_CHECKED | | | |
 | Hosting HTTPS + artifact access | READY (access) | Manufact deploy route verified (see above) | | 14:01 |
-| Optional owner call provisioning / contact-scoped mode | NOT_ENABLED | Docs: hosted Voice AI can place calls over the shared iMessage line; identity's Voice AI authority is currently `yolo` and must be set to `contact_scoped` | Later approval | |
-| Optional owner call result / authorization / resumption | NOT_ENABLED | | | |
+| Optional owner call provisioning / contact-scoped mode | READY | Every UNDO call sets hosted_agent_authority_mode=contact_scoped (identity default stays yolo: setter returns 403 to our key), origination shared_imessage_number, onVoicemail hang_up; inbound calls auto_reject; separate call.ended subscription | Admin key/Console needed only to change the identity default | 18:50 |
+| Optional owner call result / authorization / resumption | VERIFIED | Live call 2026-10-17 19:41 PT: outcome completed, authority contact_scoped, call.ended settled once, authoritative transcript bound to case/plan; owner answer treated as proposed intent, agent clarified, approval only by text code; recovery partially_reverted + verify verified (reports/runs/live-2-owner-voice.json) | | 19:50 |
 
 ACCESS_READY: NO (blocked on Armature workspace and approvals; Neon access now ready)
 INTEGRATIONS_VERIFIED: NO

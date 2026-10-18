@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-17T23:31:05.245Z",
+  "generated_at": "2026-10-18T03:03:46.178Z",
   "release_status": "DEMO_READY_WITH_LIMITS_OR_BUILDING",
   "gates": [
     {
@@ -44,25 +44,31 @@
     }
   ],
   "e2e": true,
-  "voice": "NOT_ENABLED (V01-V05 not in approved scope)",
+  "voice": "VERIFIED",
   "approved_scope_reductions": [
     "Owner phone channel is iMessage via the Inkbox shared router instead of SMS (user-approved 2026-10-17)"
   ],
   "items": [
     {
       "id": "U01",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U01 an approved, capped launch commits exact mutations with journal rows"
+      ]
     },
     {
       "id": "U02",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U02 rejects a cap-breaking price and a forbidden field before any write"
+      ]
     },
     {
       "id": "U03",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U03 a failure mid-write leaves no partial, unjournaled mutation"
+      ]
     },
     {
       "id": "U04",
@@ -70,90 +76,138 @@
       "evidence": [
         "reports/runs/live-1-owner-imessage-and-customer-email.json",
         "reports/runs/live-1-owner-imessage.json",
+        "reports/runs/live-2-owner-voice.json",
         "reports/eval-agent.json case A"
       ]
     },
     {
       "id": "U05",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U05/U26/U11 exact restoration with new revisions; sizing edit and orders untouched"
+      ]
     },
     {
       "id": "U06",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U04/U06/U07 preview: premium eligible; later shoe price and change-away-and-back are conflicts"
+      ]
     },
     {
       "id": "U07",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U04/U06/U07 preview: premium eligible; later shoe price and change-away-and-back are conflicts"
+      ]
     },
     {
       "id": "U08",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U08 a write between preview and apply is not overwritten"
+      ]
     },
     {
       "id": "U09",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U09/U10 duplicate execute key replays; same key with a different body conflicts"
+      ]
     },
     {
       "id": "U10",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U09/U10 duplicate execute key replays; same key with a different body conflicts"
+      ]
     },
     {
       "id": "U11",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U05/U26/U11 exact restoration with new revisions; sizing edit and orders untouched"
+      ]
     },
     {
       "id": "U12",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U12 an atomic group with one conflicting member is withheld as a whole"
+      ]
     },
     {
       "id": "U13",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U13 owner-accepted exception yields resolved_with_exceptions, distinct from full restoration"
+      ]
     },
     {
       "id": "U14",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U14 cross-store: the eval store's evaluator cannot see or select demo changes"
+      ]
     },
     {
       "id": "U15",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > an unknown phone number gets no case and no reply",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > a customer email cannot reach the owner channel; an unknown email is rejected",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > group iMessages are out of scope",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > a customer credential can never preview, apply, execute, or see other orders"
+      ]
     },
     {
       "id": "U16",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U16 apply needs the owner's confirmation of this exact plan hash",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > ignores ordinary text and rejects a wrong code",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > only the owner principal can approve; a customer reply with the right code is refused",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > an old code cannot approve a newer plan (out-of-order reply)",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > a plan that changed after the code was sent is not approved",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > the current code from the owner approves exactly that plan once, and apply consumes it",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > NO <code> declines without creating an approval"
+      ]
     },
     {
       "id": "U17",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/security/security.test.ts: U17 signed receiver > accepts a valid signed event exactly once",
+        "tests/security/security.test.ts: U17 signed receiver > rejects an altered body, a bad signature, a missing token, and an oversized payload"
+      ]
     },
     {
       "id": "U18",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > ignores ordinary text and rejects a wrong code",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > only the owner principal can approve; a customer reply with the right code is refused",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > an old code cannot approve a newer plan (out-of-order reply)",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > a plan that changed after the code was sent is not approved",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > the current code from the owner approves exactly that plan once, and apply consumes it",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > NO <code> declines without creating an approval"
+      ]
     },
     {
       "id": "U19",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/security/security.test.ts: U19 durable leases > an expired processing lease is reclaimed; attempts are bounded",
+        "tests/security/security.test.ts: U19 durable leases > an outbox row with an unknown outcome is never resent automatically"
+      ]
     },
     {
       "id": "U20",
       "status": "passed",
       "evidence": [
         "reports/runs/live-1-owner-imessage-and-customer-email.json (owner iMessage, approved scope reduction: iMessage for SMS)",
-        "reports/runs/live-1-owner-imessage.json (owner iMessage, approved scope reduction: iMessage for SMS)"
+        "reports/runs/live-1-owner-imessage.json (owner iMessage, approved scope reduction: iMessage for SMS)",
+        "reports/runs/live-2-owner-voice.json (owner iMessage, approved scope reduction: iMessage for SMS)"
       ]
     },
     {
@@ -169,13 +223,15 @@
       "evidence": [
         "reports/eval-agent.json (fresh agent, deployed MCP, no launch transcript)",
         "reports/runs/live-1-owner-imessage-and-customer-email.json",
-        "reports/runs/live-1-owner-imessage.json"
+        "reports/runs/live-1-owner-imessage.json",
+        "reports/runs/live-2-owner-voice.json"
       ]
     },
     {
       "id": "U23",
       "status": "passed",
       "evidence": [
+        "reports/app-view/pouch-retirement-plan.png",
         "reports/app-view/recovery-plan-deployed.png",
         "reports/app-view/recovery-receipt-deployed-light.png",
         "reports/smoke-deployed.json (view resources)"
@@ -195,39 +251,115 @@
     },
     {
       "id": "U26",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/ax.test.ts: U26 agent-friendly selection > labels select exactly the recorded changes carrying them; all_changes selects the whole rollout",
+        "tests/integration/ax.test.ts: U26 agent-friendly selection > the rollout is inferred only when exactly one is recoverable",
+        "tests/integration/ax.test.ts: U26 agent-friendly selection > bad selections fail with a usable hint",
+        "tests/integration/ax.test.ts: U26 agent-friendly selection > history summarizes labels and points to the next call",
+        "tests/integration/ax.test.ts: U26 safe default idempotency > apply without a key applies once; the same call again replays the stored outcome",
+        "tests/integration/ax.test.ts: U26 safe default idempotency > proposing the same rollout twice without a key records it once",
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U05/U26/U11 exact restoration with new revisions; sizing edit and orders untouched"
+      ]
     },
     {
       "id": "U27",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U27/U28 impact: direct link from checkout provenance; unrelated and unknown are not attributed"
+      ]
     },
     {
       "id": "U28",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U27/U28 impact: direct link from checkout provenance; unrelated and unknown are not attributed"
+      ]
     },
     {
       "id": "U29",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U29 customers see only their own order"
+      ]
     },
     {
       "id": "U30",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/impact-consistency.test.ts: U30 consistent impact and readback > paging at a fixed cutoff returns every order exactly once",
+        "tests/integration/impact-consistency.test.ts: U30 consistent impact and readback > a later order does not change an as-of report; the latest report includes it",
+        "tests/integration/impact-consistency.test.ts: U30 consistent impact and readback > verify reports orders placed after the plan cutoff separately and keeps the snapshot check exact",
+        "tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > verify derives its verdict from receipts plus readback (U30 post-recovery edit reported)"
+      ]
     },
     {
       "id": "U31",
-      "status": "missing",
-      "evidence": []
+      "status": "passed",
+      "evidence": [
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > ignores ordinary text and rejects a wrong code",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > only the owner principal can approve; a customer reply with the right code is refused",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > an old code cannot approve a newer plan (out-of-order reply)",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > a plan that changed after the code was sent is not approved",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > the current code from the owner approves exactly that plan once, and apply consumes it",
+        "tests/integration/text-approval.test.ts: reply-to-approve (U16, U18, U31) > NO <code> declines without creating an approval",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > an unknown phone number gets no case and no reply",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > a customer email cannot reach the owner channel; an unknown email is rejected",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > group iMessages are out of scope",
+        "tests/security/security.test.ts: U15/U31 channel and role separation in the worker router > a customer credential can never preview, apply, execute, or see other orders"
+      ]
     },
     {
       "id": "U32",
       "status": "passed",
       "evidence": [
         "reports/mcp-probe.json (deployed)"
+      ]
+    },
+    {
+      "id": "V01",
+      "status": "passed",
+      "evidence": [
+        "reports/runs/live-2-owner-voice.json (real owner call, case-bound outcome)"
+      ]
+    },
+    {
+      "id": "V02",
+      "status": "passed",
+      "evidence": [
+        "tests/integration/voice.test.ts: V02 voicemail / no answer / unclear > no answer: no approval, no store change, one text fallback, case pending",
+        "tests/integration/voice.test.ts: V02 voicemail / no answer / unclear > declined: no approval, no store change, one text fallback, case pending",
+        "tests/integration/voice.test.ts: V02 voicemail / no answer / unclear > voicemail: no approval, no store change, one text fallback, case pending",
+        "tests/integration/voice.test.ts: V02 voicemail / no answer / unclear > connected but the owner never spoke: no approval, no store change, one text fallback, case pending"
+      ]
+    },
+    {
+      "id": "V03",
+      "status": "passed",
+      "evidence": [
+        "tests/integration/voice.test.ts: V03 duplicate and stale call results > a replayed call.ended has one local effect",
+        "tests/integration/voice.test.ts: V03 duplicate and stale call results > an answer for an older intent or expired plan is marked stale and never approves",
+        "tests/integration/voice.test.ts: V03 duplicate and stale call results > an abridged inline transcript is replaced by the authoritative lookup",
+        "tests/integration/voice.test.ts: V03 duplicate and stale call results > a result from another number or an unknown call does nothing"
+      ]
+    },
+    {
+      "id": "V04",
+      "status": "passed",
+      "evidence": [
+        "tests/integration/voice.test.ts: V04 authority and context > places a hosted call to the case owner only, explicitly contact_scoped, with a narrow brief",
+        "tests/integration/voice.test.ts: V04 authority and context > customer cases, foreign plans, and disabled voice cannot place calls",
+        "tests/integration/voice.test.ts: V04 authority and context > the brief is bounded even for a long question"
+      ]
+    },
+    {
+      "id": "V05",
+      "status": "passed",
+      "evidence": [
+        "tests/integration/voice.test.ts: V05 failure, budget, and stop > one call per plan and no second call while one is active",
+        "tests/integration/voice.test.ts: V05 failure, budget, and stop > the call budget is a hard cap and the text path still works after it",
+        "tests/integration/voice.test.ts: V05 failure, budget, and stop > an ambiguous placement failure is recorded once and never retried",
+        "tests/integration/voice.test.ts: V05 failure, budget, and stop > the duration kill switch hangs up an over-limit call exactly once"
       ]
     }
   ]
