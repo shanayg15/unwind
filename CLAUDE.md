@@ -1,7 +1,9 @@
-# UNDO (YC hackathon, Manufact/Inkbox/Armature)
+# UNWIND (internal name: undo)
 
-Reading order: `HANDOFF.md` (current state) → `PROGRESS.md` → `spec/README_START_HERE.md` → `spec/UNDO_Execution.md` (normative) →
-`spec/INKBOX_Channel_Plan.md` → `spec/DEMO_RUNBOOK.md`. Decisions: `DECISIONS.md`. Setup evidence: `SETUP_STATUS.md`.
+Reading order: `docs/build-log/HANDOFF.md` (current state) → `docs/build-log/PROGRESS.md` → `docs/spec/README_START_HERE.md` →
+`docs/spec/UNDO_Execution.md` (normative) → `docs/spec/INKBOX_Channel_Plan.md` → `docs/spec/DEMO_RUNBOOK.md`.
+Decisions: `docs/build-log/DECISIONS.md`. Setup evidence: `docs/build-log/SETUP_STATUS.md`. Recording packet: `docs/RECORDING_READY.md`.
+Product name is UNWIND; internal identifiers keep `undo` (server, tools, packages).
 
 Layout: `index.ts` (mcp-use server: 7 tools + routes) · `src/` (db, recovery engine, impact, approvals, comms, web) · `views/` (MCP App
 views) · `src/ui/` (shared receipt UI) · `worker/` (local agent worker) · `harness/` · `scripts/` · `tests/`.

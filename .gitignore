@@ -21,3 +21,4 @@ test-results/
 .vite/
 *.tsbuildinfo
 .eslintcache
+.claude/launch.json

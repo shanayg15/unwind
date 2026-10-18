@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-18T00:48:36.552Z",
+  "at": "2026-10-18T15:10:55.846Z",
   "base": "https://bold-cloud-77gfl.run.mcp-use.com",
   "results": [
     {
@@ -10,7 +10,7 @@
     {
       "check": "storefront products",
       "pass": true,
-      "detail": "8 products"
+      "detail": "9 products"
     },
     {
       "check": "approval headline",

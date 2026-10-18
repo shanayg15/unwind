@@ -1,7 +1,7 @@
 # Demo: undo the experiment, keep the customer promises
 
 Purchase-aware rollback video path (addendum section 8). Every number is read from the live store; nothing is staged.
-Test store only: no payment is taken. Keep the original premium-withdrawal demo (`spec/DEMO_RUNBOOK.md`) available as the backup.
+Test store only: no payment is taken. Keep the original premium-withdrawal demo (`docs/spec/DEMO_RUNBOOK.md`) available as the backup.
 
 ## Before recording (about 2 minutes)
 

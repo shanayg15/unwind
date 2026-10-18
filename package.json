@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "UNDO: commerce-aware recovery MCP for shop-agent changes",
+  "description": "UNWIND: rollback for ecommerce agents that keeps customer promises (commerce-aware recovery MCP)",
+  "license": "MIT",
   "engines": {
     "node": ">=22.22.2"
   },
