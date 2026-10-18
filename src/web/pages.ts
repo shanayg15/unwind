@@ -13,23 +13,30 @@ export function esc(s: unknown): string {
 }
 
 const CSS = `
-:root{--bg:#f7f6f2;--fg:#1d1d1b;--muted:#6b6a64;--card:#fff;--line:#e3e1d9;--accent:#1f5f4a;--warn:#9a5b00;--bad:#9b1c1c;--ok:#1f6b3a}
-@media (prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ecebe6;--muted:#a3a29b;--card:#1d1d1b;--line:#33322e;--accent:#6fbf9f;--warn:#e0a548;--bad:#f08a8a;--ok:#7cc79a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:1040px;margin:0 auto;padding:24px 16px 64px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:28px 0 10px}
-.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}.price{font-size:20px;font-weight:600}
-.tag{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:4px}
-.banner{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:10px 14px;margin:12px 0}
-nav a{margin-right:14px;color:var(--accent);text-decoration:none}table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-td,th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}th{color:var(--muted);font-weight:500}
+:root{--bg:#f4f3ee;--fg:#1b1b19;--muted:#6d6c66;--card:#fff;--line:#e2e0d8;--accent:#1f5f4a;--accent-bg:#e6f0ea;--warn:#8a5300;--bad:#9b1c1c;--ok:#1f6b3a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.topbar{background:#1b1b19;color:#f4f3ee}.topbar .tb{max-width:1180px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;gap:18px}
+.topbar b{letter-spacing:.08em;font-size:18px}.topbar span{color:#b9b8b0;font-size:14px}.topbar .tbnav{margin-left:auto;display:flex;gap:6px}
+.topbar .tbnav a{color:#f4f3ee;text-decoration:none;font-size:14px;padding:5px 12px;border-radius:999px;border:1px solid #3a3a36}.topbar .tbnav a:hover{background:#2b2b28}
+main{max-width:1180px;margin:0 auto;padding:28px 24px 64px}h1{font-size:30px;font-weight:750;margin:0 0 6px;letter-spacing:-.01em}h2{font-size:15px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:32px 0 12px}
+.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card[data-offer]{border-color:var(--accent);background:var(--accent-bg)}.card[data-slot]{border-left:4px solid var(--accent)}
+.price{font-size:24px;font-weight:700;margin:2px 0 4px;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-right:4px;background:#fafaf7}
+.banner{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:14px 0;font-size:14px;color:var(--muted)}
+nav[data-slot] a{display:inline-block;margin:6px 8px 0 0;color:var(--accent);text-decoration:none;font-weight:600;font-size:15px;padding:4px 12px;border-radius:999px;background:var(--accent-bg)}
+table{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+td,th{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:15px}tr:last-child td{border-bottom:0}th{color:var(--muted);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.05em;background:#fafaf7}
 .ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}button{font:inherit;padding:10px 18px;border-radius:8px;border:1px solid var(--line);cursor:pointer}
-button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}code{font-size:12px;word-break:break-all}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}code{font-size:13px;word-break:break-all}a{color:var(--accent)}
 `;
+
+const TOPBAR = `<div class="topbar"><div class="tb"><b>UNWIND</b><span>Trailhead Outfitters · test store · no real payments</span><nav class="tbnav"><a href="/store">Store</a><a href="/store/picklist">Pick list</a><a href="/unwind">Live board</a></nav></div></div>`;
 
 export function layout(title: string, body: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)}</title><style>${CSS}</style></head><body><main>${body}</main></body></html>`;
+<title>${esc(title)}</title><style>${CSS}</style></head><body>${TOPBAR}<main>${body}</main></body></html>`;
 }
 
 const LABEL = `<div class="banner"><strong>Demo store.</strong> Shopify-style demonstration on a controlled Postgres database; not a Shopify integration. Test checkout only: no payment is processed.</div>`;

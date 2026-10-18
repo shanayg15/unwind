@@ -12,16 +12,17 @@ const CSS = `
 :root{--bg:#f4f3ee;--fg:#1b1b19;--muted:#6d6c66;--card:#fff;--line:#dedcd3;--accent:#1f5f4a;--accent-bg:#e3efe8;--warn:#8a5300;--warn-bg:#fbefd9;--bad:#9b1c1c;--bad-bg:#fbe5e5;--held:#c98a1b}
 *{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 .wrap{max-width:1880px;margin:0 auto;padding:18px 24px 28px}
-header{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:-18px -24px 16px;padding:14px 24px;background:#1b1b19;color:#f4f3ee}
+header .pill{background:#2b2b28;border-color:#3a3a36;color:#e4e3dc}header .brand small{color:#b9b8b0}
 .brand{font-weight:800;letter-spacing:.06em;font-size:30px}.brand small{font-weight:500;letter-spacing:0;font-size:17px;color:var(--muted);margin-left:12px}
 .pill{display:inline-block;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 12px;font-size:14px;color:var(--muted)}
 .live::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e9d5b;margin-right:7px;vertical-align:1px}
 .cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .stat .n{font-size:58px;font-weight:750;line-height:1.05;font-variant-numeric:tabular-nums}.stat .l{font-size:16px;color:var(--muted)}
 .stat.held .n{color:var(--held)}.stat.committed .n{color:var(--accent)}
-.grid{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:12px}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-height:120px}
+.grid{display:grid;grid-template-columns:1.15fr 1fr 1fr;gap:12px;align-items:stretch}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 18px;min-height:calc(100vh - 330px);box-shadow:0 1px 2px rgba(0,0,0,.04)}
 .panel h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px}
 .chain{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .node{border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:#fafaf7;font-size:15px}.arrow{color:var(--muted)}
