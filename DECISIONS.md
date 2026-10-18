@@ -3,7 +3,7 @@
 | Date (PT) | Decision | Why | Approval |
 |---|---|---|---|
 | 2026-10-17 14:30 | Owner phone channel = Inkbox shared iMessage router, not SMS | Already tested both ways; SMS needs a provisioned number, carrier readiness and START opt-in | User approved |
-| 2026-10-17 14:30 | Test customer = sgaitonde@ucsd.edu (email); owner = user's phone | Consented, user-controlled contacts | User approved |
+| 2026-10-17 14:30 | Test customer = user-controlled university email (later replaced by the user's work address); owner = user's phone | Consented, user-controlled contacts | User approved |
 | 2026-10-17 14:30 | Agent worker runs locally (Claude Agent SDK, user's Max subscription); receiver/MCP/App deployed on Manufact; DB on Neon free | No model API key; subscription credential must not leave the Mac. Mac must be awake for live demos | User approved |
 | 2026-10-17 14:30 | Pause the Inkbox Claude Code bridge while UNDO owns the identity | Both would answer the same texts | User approved |
 | 2026-10-17 14:30 | Budget $0 new spend; caps 150 live messages, 0 calls, <=40 Armature runs | User approval | User approved |
