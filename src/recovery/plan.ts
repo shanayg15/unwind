@@ -311,8 +311,10 @@ export async function undoPreview(p: Principal, input: PreviewInput): Promise<Re
       approval,
       mutations: "none (preview reserves nothing; apply re-checks every component and order dependency)",
       next_action:
-        conflicts.length > 0
-          ? "ask the owner whether to keep each conflicting current value; re-preview with keep_current_change_ids, then get owner confirmation"
+        keep.length > 0 && policy.recovery_grant && p.role !== "owner"
+          ? "keep_current_change_ids records an owner exception, which needs the owner's confirmation of this plan_hash (the standing grant covers only plans without exceptions; a conflict without keep is withheld automatically)"
+          : conflicts.length > 0
+          ? "conflicts are withheld automatically. If the owner decides to keep a current value, re-preview with keep_current_change_ids and get owner confirmation; otherwise get confirmation of this plan_hash (or apply under a standing grant)"
           : approval === "owner_confirmation_required"
             ? "get the owner's confirmation of this plan_hash, then call undo_apply"
             : "call undo_apply with plan_id and plan_hash",

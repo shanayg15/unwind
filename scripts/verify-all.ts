@@ -87,9 +87,13 @@ for (let n = 1; n <= 32; n++) {
     case "U23":
       add(id, appView.length && smoke?.results?.some((r: any) => r.check.includes("App view") && r.pass) ? true : null, [...appView.map((f) => `reports/app-view/${f}`), "reports/smoke-deployed.json (view resources)"]);
       break;
-    case "U24":
-      add(id, armature ? (armature.runs ?? []).filter((r: any) => r.outcome === "passed" || r.outcome === "partial").length >= 3 : null, armature ? (armature.runs ?? []).map((r: any) => `armature run ${r.run_id}: ${r.outcome}`) : ["reports/armature.json missing"]);
+    case "U24": {
+      // At least three substantive hosted goal cases where Armature's judge passed AND our deterministic DB checks agree.
+      const all = (armature?.runs ?? []) as Array<{ case: string; run_id: string; outcome: string; db_passed: boolean; tester_model: string }>;
+      const good = new Set(all.filter((r) => ["passed", "partial"].includes(r.outcome) && r.db_passed).map((r) => r.case));
+      add(id, armature ? good.size >= 3 : null, armature ? all.map((r) => `armature run ${r.run_id} case ${r.case} (${r.tester_model}): judge ${r.outcome}, db ${r.db_passed ? "pass" : "fail"}`) : ["reports/armature.json missing"]);
       break;
+    }
     case "U25":
       add(id, rehearsals.length >= 3 ? true : rehearsals.length ? false : null, rehearsals.map((r) => `reports/runs/${r.f}`));
       break;

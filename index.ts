@@ -15,6 +15,7 @@ import { undoCapabilities, undoHistory } from "./src/recovery/history.js";
 import { undoApply, undoPreview } from "./src/recovery/plan.js";
 import { buildReceipt, Receipt } from "./src/recovery/receipt.js";
 import { undoVerify } from "./src/recovery/verify.js";
+import { boardPanel, boardShell } from "./src/web/board.js";
 import { type ApprovalItem, approvalDonePage, approvalErrorPage, approvalPage, overviewPage, pickListPage, storefrontPage } from "./src/web/pages.js";
 
 const PUBLIC_STORE = process.env.PUBLIC_DEMO_STORE_ID ?? "store_demo";
@@ -310,6 +311,9 @@ if (process.env.NODE_ENV === "production") {
 server.get("/", async (c) => c.html(await overviewPage(PUBLIC_STORE, `${BASE_URL}/mcp`)));
 server.get("/store", async (c) => c.html(await storefrontPage(PUBLIC_STORE)));
 server.get("/store/picklist", async (c) => c.html(await pickListPage(PUBLIC_STORE)));
+// UNWIND recording board (read-only, masked; no controls)
+server.get("/unwind", async (c) => c.html(boardShell("UNWIND")));
+server.get("/unwind/panel", async (c) => c.html(await boardPanel(PUBLIC_STORE), 200, { "cache-control": "no-store" }));
 server.get("/healthz", async (c) => {
   const r = await query(`select 1 as ok`);
   return c.json({ ok: r.rows[0].ok === 1, service: "undo", version: "0.1.0", commit: process.env.GIT_COMMIT ?? process.env.MANUFACT_GIT_SHA ?? null });
