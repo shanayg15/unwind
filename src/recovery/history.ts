@@ -71,10 +71,14 @@ export async function undoHistory(p: Principal, input: HistoryInput): Promise<Re
       const st = await promotionState(await withTxless(), p.storeId, c.component_id, false);
       if (st) promotions.push({ change_id: c.id, ...retirementFacts(st), terms: st.terms, allocation_id: st.allocation.allocation_id, retired_at: st.retired_at });
     }
+    const labelSummary: Record<string, number> = {};
+    for (const c of ch.rows) for (const l of c.scope_labels as string[]) labelSummary[l] = (labelSummary[l] ?? 0) + 1;
     rollouts.push({
       rollout_id: r.id,
       goal: r.goal,
       state: r.state,
+      label_summary: labelSummary,
+      recoverable_changes: ch.rows.filter((c) => c.recovery_status === "active").length,
       proposal_hash: r.proposal_hash,
       review_required: r.needs_review,
       created_at: new Date(r.created_at).toISOString(),
@@ -96,7 +100,13 @@ export async function undoHistory(p: Principal, input: HistoryInput): Promise<Re
     });
   }
   const next = rows.length > limit ? `c_${new Date(page[page.length - 1].created_at).getTime()}` : null;
-  return { store_id: p.storeId, rollouts, next_cursor: next };
+  return {
+    store_id: p.storeId,
+    rollouts,
+    next_cursor: next,
+    next_action:
+      "To withdraw part of a rollout call undo_preview with {rollout_id, labels: [...]} (e.g. ['premium']); to withdraw or stop all of it use {rollout_id, all_changes: true}; exact change_ids also work.",
+  };
 }
 
 /** Supported operations, limits, auth scope, and current targetable components (bounded). */
@@ -168,6 +178,28 @@ export async function undoCapabilities(p: Principal): Promise<Record<string, unk
         policy.recovery_grant
           ? "This store has a standing owner grant: eligible restorations may be applied without a per-plan approval."
           : "Applying a plan needs the owner's confirmation of the exact plan_hash.",
+      ],
+      quickstart: [
+        {
+          goal: "Withdraw part of an earlier launch (e.g. premium only)",
+          steps: [
+            "undo_history -> find the rollout by goal; read label_summary",
+            "undo_preview {rollout_id, labels:['premium']} -> read conflicts; ask the owner about each one",
+            "if the owner keeps a later value: undo_preview again with keep_current_change_ids",
+            "owner confirms the plan_hash -> undo_apply {plan_id, plan_hash, approval_id}",
+            "undo_verify {recovery_id}",
+          ],
+        },
+        {
+          goal: "Stop a gift-offer experiment but honor accepted orders",
+          steps: [
+            "undo_history -> the rollout whose labels include gift_offer",
+            "undo_preview {rollout_id, all_changes:true} -> purchase_dependencies shows kept vs releasable units",
+            "owner confirms -> undo_apply; if status is stale_dependency_state, confirm fresh_plan instead",
+            "undo_verify {recovery_id} -> stock and order checks",
+          ],
+        },
+        { goal: "Answer a customer about their order", steps: ["undo_impact with a customer credential returns only that customer's orders and gifts"] },
       ],
       targets,
       active_offers: p.role === "customer" ? [] : await activeOffers(tx, p.storeId),

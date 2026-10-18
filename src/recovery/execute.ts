@@ -192,7 +192,8 @@ export interface ExecuteInput {
   proposal?: Proposal;
   rollout_id?: string;
   proposal_hash?: string;
-  idempotency_key: string;
+  /** Optional: defaults to a key derived from the proposal (or rollout), so retries never duplicate. */
+  idempotency_key?: string;
 }
 
 /** Test-only fault injection for U03 (never reachable from MCP input). */
@@ -202,8 +203,8 @@ export interface ExecuteTestHooks {
 
 export async function undoExecute(p: Principal, input: ExecuteInput, hooks: ExecuteTestHooks = {}): Promise<Record<string, unknown>> {
   requireRole(p, ["agent", "evaluator", "owner"], "execute rollouts");
-  if (input.proposal && !input.rollout_id) return propose(p, input.proposal, input.idempotency_key);
-  if (input.rollout_id && input.proposal_hash) return run(p, input.rollout_id, input.proposal_hash, input.idempotency_key, hooks);
+  if (input.proposal && !input.rollout_id) return propose(p, input.proposal, input.idempotency_key ?? `auto-propose-${hashOf({ proposal: Proposal.parse(input.proposal) }).slice(0, 40)}`);
+  if (input.rollout_id && input.proposal_hash) return run(p, input.rollout_id, input.proposal_hash, input.idempotency_key ?? `auto-run-${input.rollout_id}`, hooks);
   throw new UndoError("invalid_input", "Provide either {proposal} to create a rollout, or {rollout_id, proposal_hash} to execute an approved one");
 }
 
@@ -245,8 +246,8 @@ async function propose(p: Principal, proposal: Proposal, key: string) {
       review_required: reviewRequired,
       checks: stored.changes.map((c) => ({ component: refKey(c.component), check: c.check, labels: c.scope_labels })),
       next_action: ownerProposed
-        ? "call undo_execute with {rollout_id, proposal_hash, idempotency_key}"
-        : "owner must approve this exact proposal_hash in the owner console; then call undo_execute with {rollout_id, proposal_hash, idempotency_key}",
+        ? "call undo_execute with {rollout_id, proposal_hash}"
+        : "owner must approve this exact proposal_hash; then call undo_execute with {rollout_id, proposal_hash}",
     };
     await storeResponse(tx, p.storeId, "execute.propose", key, result);
     return result;

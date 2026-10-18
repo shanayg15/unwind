@@ -134,10 +134,12 @@ function GiftStock({ a, mode }: { a: Allocation; mode: "plan" | "recovery" }) {
           <span>{mode === "plan" ? "Released to stock on apply" : "Still held by the offer"}</span>
           <b>{a.held_unallocated}</b>
         </li>
-        <li>
-          <span>Released to available stock</span>
-          <b>{a.released}</b>
-        </li>
+        {mode === "recovery" && (
+          <li>
+            <span>Released to available stock</span>
+            <b>{a.released}</b>
+          </li>
+        )}
         <li>
           <span>Available for ordinary sale now</span>
           <b>{a.available_now}</b>

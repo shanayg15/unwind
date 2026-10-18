@@ -28,7 +28,7 @@ const server = new MCPServer({
   instructions: [
     "UNDO records every supported store edit (price, promotional copy, homepage/navigation slots) with exact before/after values and revisions.",
     "Workflow: undo_capabilities -> undo_history (discover rollouts and change_ids; you never need the original conversation) ->",
-    "undo_preview (select exact recorded change_ids; conflicts are reported, nothing is written) -> undo_impact (orders linked by captured price revision) ->",
+    "undo_preview (select by recorded labels, e.g. {rollout_id, labels:['premium']}, or {all_changes:true}, or exact change_ids; conflicts are reported, nothing is written) -> undo_impact (orders linked by captured price revision) ->",
     "undo_apply (needs the owner's confirmation of the exact plan_hash unless a standing grant covers it) -> undo_verify (readback + preservation checks).",
     "Select changes by their recorded labels (e.g. 'premium', 'clearance', 'navigation'). Never invent before-values or inverses.",
     "A later edit to a recorded component is a conflict: ask the owner whether to keep the current value, then re-preview with keep_current_change_ids.",
@@ -144,7 +144,7 @@ export const undoExecuteTool = server.tool(
       ),
       rollout_id: z.string().max(40).optional(),
       proposal_hash: z.string().length(64).optional(),
-      idempotency_key: idem,
+      idempotency_key: idem.optional().describe("Optional; defaults to a key derived from the proposal or rollout, so retries never duplicate"),
     }),
     outputSchema: Loose,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -171,10 +171,12 @@ export const undoPreviewTool = server.tool(
     name: "undo_preview",
     title: "UNDO preview",
     description:
-      "Preview recovery of exact recorded change_ids from one rollout (pick them from undo_history by label). Classifies each as eligible, conflict (changed by a later writer), already_reverted, or kept_by_new_decision; atomic groups are withheld as a whole. Returns plan_id, plan_hash and expiry. Writes nothing and reserves nothing. Gift promotions show purchase_dependencies: units set aside, committed to accepted orders (protected), and held/releasable; the plan is bound to those counts.",
+      "Preview recovery of exact recorded change_ids from one rollout (pick them from undo_history by label). Classifies each as eligible, conflict (changed by a later writer), already_reverted, or kept_by_new_decision; atomic groups are withheld as a whole. Returns plan_id, plan_hash and expiry. Writes nothing and reserves nothing. Gift promotions show purchase_dependencies: units set aside, committed to accepted orders (protected), and held/releasable; the plan is bound to those counts. Select with labels (e.g. [\"premium\"]), all_changes: true, or exact change_ids; rollout_id can be omitted when only one rollout is recoverable.",
     inputSchema: z.object({
-      rollout_id: z.string().max(40),
-      change_ids: z.array(changeId).min(1).max(50).describe("Recorded change_ids to withdraw"),
+      rollout_id: z.string().max(40).optional().describe("Rollout to recover (from undo_history). May be omitted only when exactly one rollout has recoverable changes."),
+      change_ids: z.array(changeId).min(1).max(50).optional().describe("Exact recorded change_ids to withdraw"),
+      labels: z.array(z.string().min(1).max(40)).min(1).max(10).optional().describe("Select every change in the rollout carrying ANY of these recorded labels, e.g. ['premium'] or ['gift_offer']"),
+      all_changes: z.boolean().optional().describe("Select every change in the rollout (e.g. stop a whole experiment)"),
       keep_current_change_ids: z.array(changeId).max(50).optional().describe("Subset of change_ids where the OWNER decided to keep the current value (accepted exception)"),
       intent_note: z.string().max(300).optional().describe("Short note of the owner's instruction this plan implements"),
     }),
@@ -188,7 +190,9 @@ export const undoPreviewTool = server.tool(
       const r = await undoPreview(p, input);
       const receipt = await buildReceipt(p.storeId, String(r.plan_id));
       const c = r.counts as Record<string, number>;
-      return ok(`Plan ${String(r.plan_id)}: ${String(r.will_restore)} will restore, ${c.conflict ?? 0} conflict(s), ${c.kept_by_new_decision ?? 0} kept.`, { ...r, receipt });
+      const deps = (r.purchase_dependencies ?? []) as Array<{ title: string; committed_to_accepted_orders: number; accepted_order_ids: string[]; releasable_on_apply: number; will_retire: boolean }>;
+      const gift = deps.map((d) => (d.will_retire ? ` ${d.title}: ${d.accepted_order_ids.length} accepted order(s) keep ${d.committed_to_accepted_orders} gift(s); ${d.releasable_on_apply} held unit(s) go back to stock on apply.` : ` ${d.title}: withheld.`)).join("");
+      return ok(`Plan ${String(r.plan_id)}: ${String(r.will_restore)} will restore, ${c.conflict ?? 0} conflict(s), ${c.kept_by_new_decision ?? 0} kept.${gift} Approval: ${String(r.approval)}. Next: ${String(r.next_action)}`, { ...r, receipt });
     } catch (e) {
       return fail(e);
     }
@@ -234,7 +238,7 @@ export const undoApplyTool = server.tool(
       plan_id: z.string().max(40),
       plan_hash: z.string().length(64),
       approval_id: z.string().max(40).optional().describe("Owner approval for this exact plan_hash"),
-      idempotency_key: idem,
+      idempotency_key: idem.optional().describe("Optional; defaults to a key derived from plan_id + approval_id, so retries never apply twice"),
     }),
     outputSchema: Loose,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -243,7 +247,10 @@ export const undoApplyTool = server.tool(
     try {
       const p = await principalOf(ctx);
       const r = await undoApply(p, input);
-      return ok(`Recovery ${String(r.recovery_id)}: ${String(r.status)}.`, r);
+      if (r.status === "stale_dependency_state") return ok(`Not applied: order dependencies changed after preview; nothing was written. Fresh plan ${String((r.fresh_plan as { plan_id: string }).plan_id)} needs confirmation. Next: ${String(r.next_action)}`, r);
+      const pa = (r.purchase_aware ?? []) as Array<{ effects: Array<{ label: string; quantity?: number }> }>;
+      const gift = pa.map((x) => ` Released ${x.effects.find((e) => e.label === "release_remaining")?.quantity ?? 0} held unit(s); ${x.effects.find((e) => e.label === "preserve_order_commitment")?.quantity ?? 0} stay committed to accepted orders.`).join("");
+      return ok(`Recovery ${String(r.recovery_id)}: ${String(r.status)}.${gift} Next: ${String(r.next_action)}`, r);
     } catch (e) {
       return fail(e);
     }

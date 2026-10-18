@@ -1,8 +1,8 @@
 {
-  "at": "2026-10-18T00:47:15.325Z",
+  "at": "2026-10-18T00:54:32.655Z",
   "server_id": "fa0d3fbb-466f-44fe-80b3-8b806ace54ff",
-  "deployment_id": "79d91947-1bc5-45e0-921d-9a603cce83d4",
-  "commit": "cdc2111af80e130334d58bcff823d19aef0d4f4d",
+  "deployment_id": "a0d414c7-5c90-4995-a5e0-d494cc4594b3",
+  "commit": "c73a5115fb24bd6d09c038f7c737690fbfb4468e",
   "mcp_url": "https://bold-cloud-77gfl.run.mcp-use.com/mcp",
   "dashboard": "https://manufact.com/cloud/org-808238af-w8cml/servers/fa0d3fbb-466f-44fe-80b3-8b806ace54ff/overview",
   "health": {

@@ -31,7 +31,17 @@ async function caps(token: string) {
   return JSON.parse(line ? line.slice(6) : text).result.structuredContent as { targets: Array<{ sku: string; price: { revision: number }; sizing_info_revision: number }> };
 }
 
-if (process.argv.includes("--scenario") && process.argv[process.argv.indexOf("--scenario") + 1] === "pouch") {
+const scenario = process.argv.includes("--scenario") ? process.argv[process.argv.indexOf("--scenario") + 1] : "weekend";
+if (scenario === "pouch-one") {
+  // Optional live variation: one more customer accepts the gift (e.g. between the owner's preview and YES).
+  const html = await (await fetch(`${BASE}/store`)).text();
+  const m = /data-offer="([^"]+)" data-terms-hash="([a-f0-9]{64})"/.exec(html);
+  if (!m) throw new Error("no active offer on the storefront");
+  const o = await post("/api/checkout", tok(ids.b), { items: [{ sku: "PRM-JKT", quantity: 1 }], accept_offer: { promotion_id: m[1], terms_hash: m[2] }, idempotency_key: newId("ord") });
+  console.log(`extra gift order ${o.order_id}: ${o.lines[0].title} ${o.total} + ${o.gift?.title ?? "no gift"}`);
+  process.exit(0);
+}
+if (scenario === "pouch") {
   // Free-pouch experiment: four customers' checkouts accept the offer they saw on the live storefront.
   const html = await (await fetch(`${BASE}/store`)).text();
   const m = /data-offer="([^"]+)" data-terms-hash="([a-f0-9]{64})"/.exec(html);

@@ -156,8 +156,12 @@ async function classify(tx: Tx, storeId: string, changes: ChangeRow[], keep: Set
 }
 
 export interface PreviewInput {
-  rollout_id: string;
-  change_ids: string[];
+  /** Optional when the store has exactly one executed rollout with unreverted changes. */
+  rollout_id?: string;
+  /** Exact recorded change_ids; or select by recorded labels, or every change in the rollout. */
+  change_ids?: string[];
+  labels?: string[];
+  all_changes?: boolean;
   keep_current_change_ids?: string[];
   intent_note?: string;
 }
@@ -197,22 +201,64 @@ function shortJson(v: Record<string, unknown>): unknown {
   return v;
 }
 
+/**
+ * Resolve the selection deterministically from recorded data: an inferred rollout (only when unambiguous),
+ * exact change_ids, recorded labels (a change matches if it carries ANY listed label), or all changes.
+ */
+async function resolveSelection(tx: Tx, storeId: string, input: PreviewInput) {
+  const modes = [input.change_ids?.length ? "change_ids" : null, input.labels?.length ? "labels" : null, input.all_changes ? "all_changes" : null].filter(Boolean) as string[];
+  if (modes.length !== 1) throw new UndoError("invalid_input", "Select changes with exactly one of: change_ids, labels, or all_changes: true", { given: modes }, "call undo_history to see each rollout's change_ids and labels");
+  let rolloutId = input.rollout_id;
+  if (!rolloutId) {
+    const open = (
+      await tx.query(
+        `select r.id, r.goal, r.executed_at from rollouts r where r.store_id=$1 and r.state='executed'
+            and exists (select 1 from action_changes c where c.rollout_id=r.id and c.recovery_status='active') order by r.executed_at desc limit 5`,
+        [storeId],
+      )
+    ).rows;
+    if (open.length !== 1) {
+      throw new UndoError(
+        "invalid_input",
+        open.length ? "More than one rollout could match; pass rollout_id" : "No executed rollout has recoverable changes",
+        { candidates: open.map((r) => ({ rollout_id: r.id, goal: r.goal, executed_at: new Date(r.executed_at).toISOString() })) },
+        "pick the rollout_id whose goal matches the owner's request",
+      );
+    }
+    rolloutId = open[0].id as string;
+  }
+  let ids: string[];
+  if (modes[0] === "change_ids") ids = [...new Set(input.change_ids)];
+  else {
+    const rows = (await tx.query(`select id, scope_labels from action_changes where store_id=$1 and rollout_id=$2 order by id`, [storeId, rolloutId])).rows;
+    const want = new Set((input.labels ?? []).map((l) => l.toLowerCase()));
+    ids = rows.filter((r) => modes[0] === "all_changes" || (r.scope_labels as string[]).some((l) => want.has(l.toLowerCase()))).map((r) => r.id);
+    if (!ids.length) {
+      const known = [...new Set(rows.flatMap((r) => r.scope_labels as string[]))].sort();
+      throw new UndoError("invalid_input", `No recorded change in this rollout has the label(s) ${[...want].join(", ")}`, { known_labels: known }, "use one of known_labels");
+    }
+  }
+  if (ids.length > 50) throw new UndoError("invalid_input", "Select between 1 and 50 change_ids");
+  return { rolloutId, ids, by: modes[0], inferredRollout: !input.rollout_id };
+}
+
 export async function undoPreview(p: Principal, input: PreviewInput): Promise<Record<string, unknown>> {
   requireRole(p, ["agent", "evaluator", "owner"], "preview recovery");
-  if (!input.change_ids.length || input.change_ids.length > 50) throw new UndoError("invalid_input", "Select between 1 and 50 change_ids");
-  const keep = [...new Set(input.keep_current_change_ids ?? [])];
-  const selected = [...new Set(input.change_ids)];
-  const stray = keep.filter((k) => !selected.includes(k));
-  if (stray.length) throw new UndoError("invalid_input", "keep_current_change_ids must be a subset of change_ids", { stray });
   return withTx(async (tx) => {
+    const sel = await resolveSelection(tx, p.storeId, input);
+    const selected = sel.ids;
+    const keep = [...new Set(input.keep_current_change_ids ?? [])];
+    const stray = keep.filter((k) => !selected.includes(k));
+    if (stray.length) throw new UndoError("invalid_input", "keep_current_change_ids must be a subset of the selected change_ids", { stray });
+    input = { ...input, rollout_id: sel.rolloutId, change_ids: selected };
     const ro = (await tx.query(`select id, state from rollouts where id=$1 and store_id=$2`, [input.rollout_id, p.storeId])).rows[0];
     if (!ro) throw new UndoError("not_found", "Rollout not found in this store");
     if (ro.state !== "executed") throw new UndoError("invalid_input", `Rollout is ${ro.state}; only executed rollouts can be recovered`);
     const policy = await loadPolicy(tx, p.storeId);
-    const changes = await loadChanges(tx, p.storeId, input.rollout_id, selected);
+    const changes = await loadChanges(tx, p.storeId, sel.rolloutId, selected);
     const items = await classify(tx, p.storeId, changes, new Set(keep), false);
     const snap = await orderSnapshot(tx, p.storeId);
-    const hash = planHash(p.storeId, input.rollout_id, selected, keep, items, snap.hash);
+    const hash = planHash(p.storeId, sel.rolloutId, selected, keep, items, snap.hash);
     const planId = newId("plan");
     const { rows } = await tx.query(
       `insert into recovery_plans(id, store_id, rollout_id, selected_change_ids, keep_current_change_ids, items, plan_hash,
@@ -248,6 +294,7 @@ export async function undoPreview(p: Principal, input: PreviewInput): Promise<Re
       plan_id: planId,
       plan_hash: hash,
       rollout_id: input.rollout_id,
+      selection: { by: sel.by, ...(input.labels?.length ? { labels: input.labels } : {}), change_ids: selected, rollout_inferred: sel.inferredRollout },
       expires_at: new Date(rows[0].expires_at).toISOString(),
       counts,
       will_restore: items.filter((i) => i.will_write).length,
@@ -284,7 +331,8 @@ export interface ApplyInput {
   plan_id: string;
   plan_hash: string;
   approval_id?: string;
-  idempotency_key: string;
+  /** Optional: defaults to a key derived from the plan and approval, so a retry can never apply twice. */
+  idempotency_key?: string;
 }
 
 /** Test-only fault injection and barriers (never reachable from MCP input). */
@@ -302,8 +350,9 @@ class StaleDependency extends Error {
   }
 }
 
-export async function undoApply(p: Principal, input: ApplyInput, hooks: ApplyTestHooks = {}): Promise<Record<string, unknown>> {
+export async function undoApply(p: Principal, raw: ApplyInput, hooks: ApplyTestHooks = {}): Promise<Record<string, unknown>> {
   requireRole(p, ["agent", "evaluator", "owner"], "apply recovery");
+  const input = { ...raw, idempotency_key: raw.idempotency_key ?? `auto-apply-${raw.plan_id}-${raw.approval_id ?? "direct"}` };
   try {
     return await applyLocked(p, input, hooks);
   } catch (e) {
@@ -339,7 +388,7 @@ export async function undoApply(p: Principal, input: ApplyInput, hooks: ApplyTes
   }
 }
 
-async function applyLocked(p: Principal, input: ApplyInput, hooks: ApplyTestHooks): Promise<Record<string, unknown>> {
+async function applyLocked(p: Principal, input: ApplyInput & { idempotency_key: string }, hooks: ApplyTestHooks): Promise<Record<string, unknown>> {
   const compensationActionId = newId("act");
   return withTx(
     async (tx) => {
