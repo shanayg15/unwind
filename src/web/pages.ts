@@ -41,12 +41,45 @@ export function layout(title: string, body: string): string {
 
 const LABEL = `<div class="banner"><strong>Demo store.</strong> Shopify-style demonstration on a controlled Postgres database; not a Shopify integration. Test checkout only: no payment is processed.</div>`;
 
+// Royalty-free product photography (Unsplash license), hotlinked from Unsplash's CDN.
+const IMG = (id: string, w = 700, h = 700) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=${w}&h=${h}&q=70`;
+const PHOTO: Record<string, string> = {
+  "PRM-JKT": "1521223890158-f9f7c3d5d504",
+  "PRM-SHO": "1456613820599-bfe244172af5",
+  "PRM-KNT": "1574201635302-388dd92a4c3f",
+  "PRM-PCK": "1501555088652-021faa106b9b",
+  "CLR-SHT": "1740711152088-88a009e877bb",
+  "CLR-SRT": "1591195853828-11db59a44f6b",
+  "CLR-CAP": "1588850561407-ed78c282e89b",
+  "COR-TOT": "1574365569389-a10d488ca3fb",
+  "COR-PCH": "1620093349352-3d6c6eec7fc4",
+};
+const HERO = "1551632811-561732d1e306";
+const STORE_CSS = `
+.hero{position:relative;border-radius:18px;overflow:hidden;min-height:340px;display:flex;align-items:flex-end;background:#2b2b28 center/cover no-repeat;margin:4px 0 18px}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05) 30%,rgba(0,0,0,.62))}
+.hero .copy{position:relative;z-index:1;padding:28px 32px;color:#fff;max-width:720px}.hero .eyebrow{font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+.hero h2{all:unset;display:block;font-size:44px;font-weight:800;line-height:1.05;letter-spacing:-.02em;margin:6px 0 8px}.hero p{margin:0 0 16px;font-size:18px;opacity:.92}
+.hero a.cta{display:inline-block;background:#fff;color:#1b1b19;text-decoration:none;font-weight:700;padding:11px 20px;border-radius:999px}
+.offerbar{display:flex;gap:14px;align-items:center;justify-content:space-between;background:var(--accent);color:#fff;border-radius:14px;padding:14px 20px;margin:0 0 18px}
+.offerbar b{font-size:18px}.offerbar small{opacity:.85;font-size:14px}.offerbar .left{display:flex;flex-direction:column;gap:2px}.offerbar .count{font-size:15px;background:rgba(255,255,255,.16);padding:6px 12px;border-radius:999px;white-space:nowrap}
+.cats{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}.cats a{display:inline-block;color:var(--fg);text-decoration:none;font-weight:600;font-size:15px;padding:7px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line)}
+.products{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:18px}
+.product{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.product .ph{aspect-ratio:1/1;background:#eceae3 center/cover no-repeat}.product .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:4px;flex:1}
+.product h3{margin:0;font-size:17px}.product .price{font-size:22px;font-weight:750}.product .promo{color:var(--muted);font-size:14px;margin:2px 0}
+.product .stock{font-size:13px;color:var(--muted)}.product .stock.held{color:var(--warn)}.product .size{font-size:13px;color:var(--muted)}
+.product button{margin-top:auto;background:#1b1b19;color:#fff;border:0;border-radius:999px;padding:10px 14px;font-weight:600;opacity:.9;cursor:not-allowed}
+.secondary{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:16px 20px;margin:22px 0}
+.secondary h3{margin:0;font-size:20px}.secondary p{margin:2px 0 0;color:var(--muted)}
+`;
+
 export async function storefrontPage(storeId: string): Promise<string> {
   return withTx(async (tx) => {
     const store = (await tx.query(`select name from stores where id=$1`, [storeId])).rows[0];
     if (!store) return layout("Store", "<h1>Store not found</h1>");
     const slots = Object.fromEntries((await tx.query(`select slot_kind, content, revision from store_slots where store_id=$1`, [storeId])).rows.map((s) => [s.slot_kind, s]));
-    const products = (await tx.query(`select id, sku, title, collection from products where store_id=$1 order by collection desc, sku`, [storeId])).rows;
+    const products = (await tx.query(`select id, sku, title, collection from products where store_id=$1 order by case collection when 'premium' then 0 when 'clearance' then 1 else 2 end, sku`, [storeId])).rows;
     const cards = [];
     for (const p of products) {
       const price = await readComponent(tx, storeId, { type: "price", id: p.id, key: "price" });
@@ -55,27 +88,35 @@ export async function storefrontPage(storeId: string): Promise<string> {
       const pj = price ? valueToJson(price.value) : null;
       const inv = (await tx.query(`select on_hand, held, committed from inventory where store_id=$1 and product_id=$2`, [storeId, p.id])).rows[0];
       const avail = inv ? inv.on_hand - inv.held - inv.committed : null;
-      const stockLine = inv ? `<div class="muted" style="font-size:13px" data-available="${esc(avail)}" data-held="${esc(inv.held)}">${esc(avail)} available${inv.held ? ` · ${esc(inv.held)} set aside for an offer` : ""}</div>` : "";
-      cards.push(`<div class="card" data-sku="${esc(p.sku)}"><span class="tag">${esc(p.collection)}</span><span class="tag">${esc(p.sku)}</span>
-<h3 style="margin:8px 0 2px">${esc(p.title)}</h3><div class="price" data-price-rev="${esc(price?.revision)}">${pj ? esc(formatMoney(Number(pj.amount_minor))) : "-"}</div>${stockLine}
-<p>${esc(promo && promo.value.kind === "text" ? promo.value.text : "")}</p><p class="muted" style="font-size:13px"><strong>Sizing:</strong> ${esc(sizing && sizing.value.kind === "text" ? sizing.value.text : "")}</p></div>`);
+      const stockLine = inv
+        ? `<div class="stock${inv.held ? " held" : ""}" data-available="${esc(avail)}" data-held="${esc(inv.held)}">${esc(avail)} available${inv.held ? ` · ${esc(inv.held)} set aside for an offer` : ""}</div>`
+        : "";
+      const photo = PHOTO[p.sku] ? `style="background-image:url('${IMG(PHOTO[p.sku])}')"` : "";
+      cards.push(`<div class="product" data-sku="${esc(p.sku)}"><div class="ph" ${photo} role="img" aria-label="${esc(p.title)}"></div><div class="body">
+<div><span class="tag">${esc(p.collection)}</span><span class="tag">${esc(p.sku)}</span></div><h3>${esc(p.title)}</h3>
+<div class="price" data-price-rev="${esc(price?.revision)}">${pj ? esc(formatMoney(Number(pj.amount_minor))) : "-"}</div>${stockLine}
+<p class="promo">${esc(promo && promo.value.kind === "text" ? promo.value.text : "")}</p><div class="size"><strong>Sizing:</strong> ${esc(sizing && sizing.value.kind === "text" ? sizing.value.text : "")}</div>
+<button disabled title="Test store: checkout runs through the demo API">Add to cart</button></div></div>`);
     }
     const offers = await activeOffers(tx, storeId);
     const offerHtml = offers
       .map(
         (o) =>
-          `<div class="card" data-offer="${esc(o.promotion_id)}" data-terms-hash="${esc(o.terms_hash)}"><span class="tag">offer</span><h3 style="margin:6px 0 2px">${esc(o.title)}</h3><div>${esc(o.terms)}</div><div class="muted" style="font-size:13px">${esc(o.remaining)} of ${esc(o.cap)} gifts left · accept it at checkout to add the gift</div></div>`,
+          `<div class="offerbar" data-offer="${esc(o.promotion_id)}" data-terms-hash="${esc(o.terms_hash)}"><div class="left"><b>${esc(o.title)}</b><small>${esc(o.terms)}</small></div><span class="count">${esc(o.remaining)} of ${esc(o.cap)} gifts left · accept at checkout</span></div>`,
       )
       .join("");
     const nav = slots.navigation?.content?.items ?? [];
-    const tile = (k: string) =>
-      slots[k] ? `<div class="card" data-slot="${esc(k)}"><span class="tag">${esc(k.replace("_", " "))}</span><h3 style="margin:6px 0 2px">${esc(slots[k].content.title)}</h3><div class="muted">${esc(slots[k].content.subtitle ?? "")}</div></div>` : "";
+    const prem = slots.premium_home?.content;
+    const clr = slots.clearance_home?.content;
+    const hero = prem
+      ? `<section class="hero" data-slot="premium_home" style="background-image:url('${IMG(HERO, 1600, 700)}')"><div class="copy"><div class="eyebrow">Trailhead Outfitters</div><h2>${esc(prem.title)}</h2><p>${esc(prem.subtitle ?? "")}</p><a class="cta" href="#products">Shop the collection</a></div></section>`
+      : "";
+    const clearance = clr ? `<div class="secondary" data-slot="clearance_home"><div><h3>${esc(clr.title)}</h3><p>${esc(clr.subtitle ?? "")}</p></div><span class="tag">clearance</span></div>` : "";
     return layout(
       store.name,
-      `<h1>${esc(store.name)}</h1><nav data-slot="navigation">${nav.map((i: { label: string; link: string }) => `<a href="#">${esc(i.label)}</a>`).join("")}</nav>${LABEL}
-<div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))">${tile("premium_home")}${tile("clearance_home")}${offerHtml}</div>
-<h2>Products</h2><div class="grid">${cards.join("")}</div>
-<p class="muted" style="margin-top:24px">Live view of store state. <a href="/store/picklist">Pick list</a> · <a href="/">UNDO overview</a></p>`,
+      `<style>${STORE_CSS}</style>${hero}${offerHtml}<nav class="cats" data-slot="navigation">${nav.map((i: { label: string; link: string }) => `<a href="#products">${esc(i.label)}</a>`).join("")}</nav>${LABEL}
+<h2 id="products">Products</h2><div class="products">${cards.join("")}</div>${clearance}
+<p class="muted" style="margin-top:24px">Live view of store state. <a href="/store/picklist">Pick list</a> · <a href="/unwind">Live board</a></p>`,
     );
   });
 }

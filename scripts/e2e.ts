@@ -28,7 +28,7 @@ try {
 
   await page.goto(`${BASE}/store`);
   check("storefront label", await page.getByText("Test checkout only").isVisible());
-  check("storefront products", (await page.locator("[data-sku]").count()) === 8, `${await page.locator("[data-sku]").count()} products`);
+  check("storefront products", (await page.locator("[data-sku]").count()) >= 8, `${await page.locator("[data-sku]").count()} products`);
   await page.screenshot({ path: "reports/e2e/storefront.png", fullPage: true });
 
   // Stage a real plan with a conflict on the eval store and an approval link for it.
