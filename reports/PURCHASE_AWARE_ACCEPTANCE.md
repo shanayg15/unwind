@@ -1,6 +1,6 @@
 # Purchase-aware rollback: acceptance
 
-Commit `8fcc5c5` · generated 2026-10-18T04:28:20.970Z
+Commit `de23cf1` · generated 2026-10-18T06:50:25.668Z
 
 Scope: one gift-promotion adapter (`start_gift_promotion`) on the controlled demo store's own inventory pool, and its relationship to accepted test orders. No shipping, payments, refunds, external platform inventory or general bundles. A handful of fixtures does not certify production safety.
 

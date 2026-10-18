@@ -1,0 +1,555 @@
+{
+  "label": "unwind-2",
+  "captured_at": "2026-10-18T06:46:58.725Z",
+  "store": "store_demo",
+  "deployment_mcp": "https://bold-cloud-77gfl.run.mcp-use.com/mcp",
+  "owner_contact": "+1925***1746",
+  "rollout": {
+    "id": "ro_14jndhv515",
+    "goal": "Free-pouch experiment: free Packable Travel Pouch with any premium order (cap 10), premium homepage tile and Summit 28L copy announcing it, all in atomic group pouch_offer",
+    "executed_at": "2026-10-18T06:44:48.057Z",
+    "launched_by": "pr_agent"
+  },
+  "recovery": {
+    "id": "rec_pwykp52f23",
+    "status": "fully_reverted",
+    "authorization": "owner_approval",
+    "at": "2026-10-18T06:46:07.838Z"
+  },
+  "verify": {
+    "verdict": "verified",
+    "recovery_id": "rec_pwykp52f23",
+    "recovery_status": "fully_reverted",
+    "authorization": "owner_approval",
+    "rollout_id": "ro_14jndhv515",
+    "accepted_exceptions": [],
+    "withheld": [],
+    "checks": [
+      {
+        "check": "restored_component",
+        "change_id": "chg_5gdhhr7r6a",
+        "component": "content:prd_demo_pack:promotional_copy",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "text": "A day pack with a weatherproof shell."
+        },
+        "state": "restored"
+      },
+      {
+        "check": "restored_component",
+        "change_id": "chg_0x68z2h6ds",
+        "component": "slot:slot_demo_premium_home:premium_home",
+        "restored_revision": 3,
+        "current_revision": 3,
+        "current_value": {
+          "title": "New season essentials"
+        },
+        "state": "restored"
+      },
+      {
+        "check": "future_eligibility_closed",
+        "change_id": "chg_xq539ke2t8",
+        "passed": true,
+        "promotion": "Free travel pouch v1",
+        "state": "retired",
+        "gifts_accepted_after_retirement": 0
+      },
+      {
+        "check": "remaining_allocation_released_once",
+        "change_id": "chg_xq539ke2t8",
+        "passed": true,
+        "initially_allocated": 10,
+        "released": 5,
+        "release_moves": 1,
+        "still_held": 0
+      },
+      {
+        "check": "order_commitments_preserved",
+        "change_id": "chg_xq539ke2t8",
+        "passed": true,
+        "committed_to_accepted_orders": 5,
+        "orders": [
+          "ord_jx6dfkvbt6",
+          "ord_zav7j2wney",
+          "ord_xd1snyam92",
+          "ord_f85rc319qb",
+          "ord_n4g1hqm0c1"
+        ]
+      },
+      {
+        "check": "stock_accounting_reconciles",
+        "passed": true,
+        "gift": {
+          "sku": "COR-PCH",
+          "on_hand": 10,
+          "available": 5,
+          "held": 0,
+          "committed": 5,
+          "owners": {
+            "held_by_allocations": 0,
+            "committed_by_order_lines": 0,
+            "committed_by_gift_entitlements": 5
+          }
+        },
+        "unbalanced": []
+      },
+      {
+        "check": "fulfillment_lists_promised_gifts",
+        "passed": true,
+        "gift_picks": 5,
+        "from": "immutable order snapshots and gift entitlements (no active-offer lookup)"
+      },
+      {
+        "check": "no_unselected_writes",
+        "passed": true,
+        "recovery_writes": 2,
+        "unexpected": []
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "PRM-PCK",
+        "component": "content:prd_demo_pack:sizing_info",
+        "current_revision": 1,
+        "last_writer": "fixture",
+        "current_value": "One size; torso 16-21 in.",
+        "passed": true
+      },
+      {
+        "check": "independent_sizing_preserved",
+        "product": "COR-PCH",
+        "component": "content:prd_demo_pouch:sizing_info",
+        "current_revision": 1,
+        "last_writer": "fixture",
+        "current_value": "One size; 8 x 6 in.",
+        "passed": true
+      },
+      {
+        "check": "order_snapshots_unchanged",
+        "passed": true,
+        "orders_checked": 6,
+        "cutoff_order_seq": 119,
+        "orders_after_cutoff": 0
+      }
+    ],
+    "communications": [
+      {
+        "message_id": "msg_0rr7e6xtak",
+        "channel": "imessage",
+        "purpose": "request_approval",
+        "status": "delivered"
+      },
+      {
+        "message_id": "msg_6cp8tc910x",
+        "channel": "imessage",
+        "purpose": "request_approval",
+        "status": "delivered"
+      },
+      {
+        "message_id": "msg_20fk9rs6jh",
+        "channel": "imessage",
+        "purpose": "completion_summary",
+        "status": "delivered"
+      }
+    ],
+    "open_customer_cases": 0,
+    "next_action": "none",
+    "checked_at": "2026-10-18T06:46:58.099Z"
+  },
+  "cases": [
+    {
+      "case_id": "case_qh7z3dyrcy",
+      "role": "owner",
+      "state": "resolved",
+      "intent_version": 1,
+      "events": [
+        {
+          "at": "2026-10-18T06:45:05.030Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 130,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T06:45:24.907Z",
+          "kind": "outbound",
+          "purpose": "request_approval",
+          "text": "Plan to stop the free-pouch experiment (nothing changed yet): close the Free travel pouch offer to new orders. 4 accepted orders keep their pouch, and the 6 unused pouches go back to stock. Premium home tile goes back to \"New season essentials\". Summit 28L copy goes back to \"A day pack with a weatherproof shell.\" No conflicts. Sizing info and existing orders stay as they are. To approve, reply YES with the code below. [reply-to-approve code and details link attached by the system]"
+        },
+        {
+          "at": "2026-10-18T06:45:31.409Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 8,
+          "duration_ms": 25759,
+          "tool_calls": [
+            "undo__undo_capabilities",
+            "undo__undo_history",
+            "undo__undo_preview",
+            "undo__undo_impact",
+            "case__case_update",
+            "case__case_send",
+            "case__case_update"
+          ]
+        },
+        {
+          "at": "2026-10-18T06:45:37.566Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 8,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T06:45:37.707Z",
+          "kind": "approval",
+          "text": "Owner approved plan plan_2n1x2kyzr3 by text reply with the plan's confirmation code (approval apv_ww0qpqeq0j)."
+        },
+        {
+          "at": "2026-10-18T06:45:49.024Z",
+          "kind": "outbound",
+          "purpose": "request_approval",
+          "text": "Update: a new order accepted the pouch after your approval, so nothing was changed yet and the old approval no longer applies. New plan: close the Free travel pouch offer to new orders. 5 accepted orders keep their pouch, and the 5 unused pouches go back to stock. Premium home tile goes back to \"New season essentials\". Summit 28L copy goes back to \"A day pack with a weatherproof shell.\" No conflicts. Sizing info and existing orders stay as they are. To approve, reply YES with the new code below. [reply-to-approve code and details link attached by the system]"
+        },
+        {
+          "at": "2026-10-18T06:45:55.418Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 4,
+          "duration_ms": 17078,
+          "tool_calls": [
+            "undo__undo_apply",
+            "case__case_send",
+            "case__case_update"
+          ]
+        },
+        {
+          "at": "2026-10-18T06:46:01.461Z",
+          "kind": "inbound",
+          "channel": "imessage",
+          "chars": 8,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T06:46:01.600Z",
+          "kind": "approval",
+          "text": "Owner approved plan plan_fw6yk0fscn by text reply with the plan's confirmation code (approval apv_1yz849q2sr)."
+        },
+        {
+          "at": "2026-10-18T06:46:17.279Z",
+          "kind": "outbound",
+          "purpose": "completion_summary",
+          "text": "Done and verified. The Free travel pouch offer is now closed to new orders. All 5 accepted orders keep their pouch and are on the pick list. The 5 unused pouches went back to stock (5 available, 5 committed, none still held). The premium home tile is back to \"New season essentials\" and the Summit 28L copy is back to \"A day pack with a weatherproof shell.\" No exceptions were needed. Sizing info for both products and all existing orders were left as they were."
+        },
+        {
+          "at": "2026-10-18T06:46:24.521Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 5,
+          "duration_ms": 22303,
+          "tool_calls": [
+            "undo__undo_apply",
+            "undo__undo_verify",
+            "case__case_send",
+            "case__case_update"
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "outbox_id": "msg_0rr7e6xtak",
+          "channel": "imessage",
+          "purpose": "request_approval",
+          "status": "delivered",
+          "provider_message_ref": "e9242535…2bb55d",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T06:45:24.838Z",
+          "sent_at": "2026-10-18T06:45:32.246Z"
+        },
+        {
+          "outbox_id": "msg_6cp8tc910x",
+          "channel": "imessage",
+          "purpose": "request_approval",
+          "status": "delivered",
+          "provider_message_ref": "d75fe7a6…320819",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T06:45:48.955Z",
+          "sent_at": "2026-10-18T06:45:56.143Z"
+        },
+        {
+          "outbox_id": "msg_20fk9rs6jh",
+          "channel": "imessage",
+          "purpose": "completion_summary",
+          "status": "delivered",
+          "provider_message_ref": "22e188a5…4513c6",
+          "recipient": "+1925***1746",
+          "created_at": "2026-10-18T06:46:17.209Z",
+          "sent_at": "2026-10-18T06:46:25.336Z"
+        }
+      ]
+    },
+    {
+      "case_id": "case_3npwvqg2re",
+      "role": "customer",
+      "state": "resolved",
+      "intent_version": 0,
+      "events": [
+        {
+          "at": "2026-10-18T06:46:34.583Z",
+          "kind": "inbound",
+          "channel": "email",
+          "chars": 108,
+          "note": "participant text kept private"
+        },
+        {
+          "at": "2026-10-18T06:46:44.050Z",
+          "kind": "outbound",
+          "purpose": "order_answer",
+          "text": "Hello,\n\nYes, your pouch is still included. Here is what we have on file for your two test orders:\n\n1) Order ord_xd1snyam92: 1 x Merino Crew Sweater at $95.00. Total $95.00. Status: placed (test). Gift: 1 x Packable Travel Pouch at $0.00.\n\n2) Order ord_jx6dfkvbt6: 1 x Alpine Shell Jacket at $120.00. Total $120.00. Status: placed (test). Gift: 1 x Packable Travel Pouch at $0.00.\n\nThese are test orders, so no payment was taken. In each order the pouch is included and set aside for you at no charge, under the terms you accepted at checkout. The offer has ended for new orders, but that does not affect orders that were already accepted. Later catalog or promotion changes do not change an existing order's recorded amount, gift or status. The pouch has been set aside for your order but has not shipped yet.\n\nBest regards,\nCustomer Support"
+        },
+        {
+          "at": "2026-10-18T06:46:51.330Z",
+          "kind": "agent_run",
+          "model": "claude-opus-5-5",
+          "stop": "success",
+          "num_turns": 5,
+          "duration_ms": 16264,
+          "tool_calls": [
+            "case__case_read",
+            "undo__undo_impact",
+            "case__case_send",
+            "case__case_update"
+          ]
+        }
+      ],
+      "messages": [
+        {
+          "outbox_id": "msg_v5g2z0x2jq",
+          "channel": "email",
+          "purpose": "order_answer",
+          "status": "delivered",
+          "provider_message_ref": "7a82005e…d461df",
+          "recipient": "sh***@openswarm.com",
+          "created_at": "2026-10-18T06:46:43.981Z",
+          "sent_at": "2026-10-18T06:46:52.850Z"
+        }
+      ]
+    }
+  ],
+  "voice": [],
+  "inbox_events": [
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T06:45:03.856Z",
+      "handled_at": "2026-10-18T06:45:31.550Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:45:34.666Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T06:45:36.488Z",
+      "handled_at": "2026-10-18T06:45:55.557Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.sent",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:45:57.850Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:45:58.387Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T06:45:59.744Z",
+      "handled_at": "2026-10-18T06:46:24.661Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.sent",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:46:27.010Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "imessage.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:46:27.681Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.received",
+      "status": "handled",
+      "attempts": 1,
+      "received_at": "2026-10-18T06:46:32.741Z",
+      "handled_at": "2026-10-18T06:46:51.467Z"
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.sent",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:46:52.756Z",
+      "handled_at": null
+    },
+    {
+      "provider": "inkbox",
+      "type": "message.delivered",
+      "status": "handled",
+      "attempts": 0,
+      "received_at": "2026-10-18T06:46:53.834Z",
+      "handled_at": null
+    }
+  ],
+  "unwind": {
+    "n": 2,
+    "build": "de23cf1",
+    "deployed": "47e1d9b",
+    "duration_s": 168,
+    "beats": [
+      {
+        "beat": "reset",
+        "at": "2026-10-18T06:44:18.463Z",
+        "detail": {
+          "held": 0,
+          "committed": 0,
+          "on_hand": 10,
+          "available": 10
+        }
+      },
+      {
+        "beat": "agent launched the offer (owner-approved, owner credential test actor)",
+        "at": "2026-10-18T06:44:58.916Z",
+        "detail": {
+          "line": "[launch] rollout ro_14jndhv515: executed, 3 recorded changes (undo__undo_execute); 40s",
+          "stock": {
+            "held": 10,
+            "committed": 0,
+            "on_hand": 10,
+            "available": 0
+          }
+        }
+      },
+      {
+        "beat": "four accepted gift orders via deployed checkout",
+        "at": "2026-10-18T06:45:02.022Z",
+        "detail": {
+          "held": 6,
+          "committed": 4,
+          "on_hand": 10,
+          "available": 0
+        }
+      },
+      {
+        "beat": "owner stop text sent (owner's Messages -> shop thread)",
+        "at": "2026-10-18T06:45:02.212Z",
+        "detail": {}
+      },
+      {
+        "beat": "preview + approval request delivered",
+        "at": "2026-10-18T06:45:33.303Z",
+        "detail": {
+          "plan": "plan_2n1x2kyzr3",
+          "committed": 4,
+          "releasable": 6
+        }
+      },
+      {
+        "beat": "fifth accepted order via deployed checkout",
+        "at": "2026-10-18T06:45:34.654Z",
+        "detail": {
+          "held": 5,
+          "committed": 5,
+          "on_hand": 10,
+          "available": 0
+        }
+      },
+      {
+        "beat": "owner YES (old plan code) sent",
+        "at": "2026-10-18T06:45:34.843Z",
+        "detail": {}
+      },
+      {
+        "beat": "stale plan refused, refreshed plan requested",
+        "at": "2026-10-18T06:45:58.285Z",
+        "detail": {
+          "superseded": [
+            "plan_2n1x2kyzr3"
+          ],
+          "fresh_plan": "plan_fw6yk0fscn",
+          "committed": 5,
+          "releasable": 5,
+          "stock_after_stale": {
+            "held": 5,
+            "committed": 5,
+            "on_hand": 10,
+            "available": 0
+          }
+        }
+      },
+      {
+        "beat": "owner YES (refreshed plan code) sent",
+        "at": "2026-10-18T06:45:58.491Z",
+        "detail": {}
+      },
+      {
+        "beat": "applied and verified; completion text delivered",
+        "at": "2026-10-18T06:46:27.076Z",
+        "detail": {
+          "stock": {
+            "held": 0,
+            "committed": 5,
+            "on_hand": 10,
+            "available": 5
+          },
+          "offer": "retired",
+          "recovery": "fully_reverted",
+          "applied_plan": "plan_fw6yk0fscn"
+        }
+      },
+      {
+        "beat": "customer email sent (OpenSwarm Gmail via Composio)",
+        "at": "2026-10-18T06:46:29.389Z",
+        "detail": {}
+      },
+      {
+        "beat": "customer reply sent from the shop mailbox",
+        "at": "2026-10-18T06:46:55.198Z",
+        "detail": {
+          "status": "delivered",
+          "mentions_pouch": true,
+          "claims_shipped": false,
+          "note": "automated regex matched \"has not shipped yet\" (a correct negation); reviewed by hand: no shipping claim"
+        }
+      }
+    ]
+  }
+}

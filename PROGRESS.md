@@ -1,16 +1,16 @@
-# UNDO progress
+# UNDO / UNWIND progress
 
-Release status: **DEMO_READY_WITH_LIMITS — only U24 (Armature) outstanding** (updated 2026-10-17 21:30 PDT)
-
-Acceptance 36/37 (`reports/acceptance.json`, `reports/FINAL_VERIFICATION.md`). Voice V01–V05 VERIFIED. Purchase-aware PA01–PA12 pass.
+Release status: **DONE_SCOPED_RELEASE** (updated 2026-10-18 00:45 PDT). Acceptance 37/37 (U01–U32, V01–V05), PA01–PA12 pass.
+Recording status: **RECORDING_READY** (see RECORDING_READY.md). Three consecutive UNWIND race rehearsals passed on deployed build 47e1d9b.
 
 ## Gates
-- U-G0 Access: ✅ Manufact, Neon, Claude (local login), Inkbox (identity, receiver, call.ended) — provider smoke 7/7. ⏳ Armature (user setup)
-- U-G1 Recovery engine: ✅ 62 integration + 15 security + 9 unit tests
-- U-G2 Vertical slice: ✅ live owner iMessage, voice call, customer email through one Inkbox identity
-- U-G3 Conversations: ✅ durable inbox/outbox, signed receiver, YES-code approval checked in code
-- U-G4 Product integration: ✅ deployed MCP (7 tools), RecoveryReceipt views, 3 MCP clients (Agent SDK worker, Claude Code CLI, mcp-use App host), fresh-agent evals A–F pass; ⏳ Armature runs
-- U-G5 Release: ✅ three rehearsals (17/17 each), backup recording (`reports/recording/`), README + docs, final report
+- Release gate on the final build: typecheck, unit 9/9, integration 63/63, security 15/15, build, deployed MCP probe, deployed smoke, setup check: all pass.
+- Provider smoke 7/7 (Manufact, Neon, Inkbox, Claude). Fresh-agent evals A–F pass. Armature hosted runs: B/D/E passed, C partial, A failed (recorded honestly).
+- Live: owner iMessage, owner voice call, customer email on one Inkbox identity; 3 weekend rehearsals + 3 UNWIND rehearsals.
 
-## Remaining
-U24: user registers the MCP + evaluator token and an API key in Armature (evals/ARMATURE_SETUP.md); then the builder runs cases A–E via the CI API with fixture resets and records reports/armature.json.
+## State left for recording
+store_demo reset to the pre-launch fixture (pouch 10 on hand, no offer); worker running; nothing queued; budgets 39/150 messages, 1/6 calls.
+
+## Open items for the user
+- Repository is private: make it public or add judges before submitting.
+- Optional: approve the launch on the phone with `--owner-link`.

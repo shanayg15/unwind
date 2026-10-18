@@ -1,17 +1,17 @@
 # UNDO final verification
 
-Generated 2026-10-18T04:28:21.305Z from evidence files at commit `8fcc5c5`. Deployed build: `8fcc5c5` (Manufact deployment a332d0a2-6d6f-4730-9445-a04ae68ed830).
+Generated 2026-10-18T07:03:55.756Z from evidence files at commit `de23cf1`. Deployed build: `47e1d9b` (Manufact deployment 948ae230-3cc4-499c-9d94-896cbdf0fe35).
 
-**Release status: DEMO_READY_WITH_LIMITS (only U24 Armature outstanding)**
+**Release status: DONE_SCOPED_RELEASE**
 
-Acceptance: 36/37 items with passing evidence; outstanding: U24 (missing). Voice: VERIFIED. Purchase-aware: PA01=passed PA02=passed PA03=passed PA04=passed PA05=passed PA06=passed PA07=passed PA08=passed PA09=passed PA10=passed PA11=passed PA12=passed.
+Acceptance: 37/37 items with passing evidence. Voice: VERIFIED. Purchase-aware: PA01=passed PA02=passed PA03=passed PA04=passed PA05=passed PA06=passed PA07=passed PA08=passed PA09=passed PA10=passed PA11=passed PA12=passed.
 
 ## Gates
 
 | Gate | Result |
 |---|---|
 | unit tests | 9/9 passed |
-| integration tests | 62/62 passed |
+| integration tests | 63/63 passed |
 | security tests | 15/15 passed |
 | typecheck | pass |
 | build | pass |
@@ -35,6 +35,9 @@ Acceptance: 36/37 items with passing evidence; outstanding: U24 (missing). Voice
 | rehearsal-1 | resolved_with_exceptions | verified | conflict_question=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
 | rehearsal-2 | resolved_with_exceptions | verified | conflict_question=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
 | rehearsal-3 | resolved_with_exceptions | verified | conflict_question=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
+| unwind-1 | fully_reverted | verified | request_approval=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
+| unwind-2 | fully_reverted | verified | request_approval=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
+| unwind-3 | fully_reverted | verified | request_approval=delivered, request_approval=delivered, completion_summary=delivered | order_answer=delivered | - |
 
 ## Acceptance items
 
@@ -63,7 +66,7 @@ Acceptance: 36/37 items with passing evidence; outstanding: U24 (missing). Voice
 | U21 | passed | reports/runs/live-1-owner-imessage-and-customer-email.json (customer email thread)<br>reports/runs/rehearsal-1.json (customer email thread)<br>reports/runs/rehearsal-2.json (customer email thread) |
 | U22 | passed | reports/eval-agent.json (fresh agent, deployed MCP, no launch transcript)<br>reports/runs/live-1-owner-imessage-and-customer-email.json<br>reports/runs/live-1-owner-imessage.json |
 | U23 | passed | reports/app-view/pouch-retirement-plan.png<br>reports/app-view/recovery-plan-deployed.png<br>reports/app-view/recovery-receipt-deployed-light.png |
-| U24 | missing | reports/armature.json missing |
+| U24 | passed | armature run 08a2b655-6adc-5261-81cc-3931e7f1e922 case C (openai:gpt-4o-mini): judge failed, db fail<br>armature run ac009490-acf1-5bde-9e44-c427fdc6f92b case A (Claude Haiku 4.5): judge failed, db fail<br>armature run 0c9579be-be10-5a2a-a207-270098ae3821 case B (Claude Haiku 4.5): judge passed, db pass |
 | U25 | passed | reports/runs/rehearsal-1.json<br>reports/runs/rehearsal-2.json<br>reports/runs/rehearsal-3.json |
 | U26 | passed | tests/integration/ax.test.ts: U26 agent-friendly selection > labels select exactly the recorded changes carrying them; all_changes selects the whole rollout<br>tests/integration/ax.test.ts: U26 agent-friendly selection > the rollout is inferred only when exactly one is recoverable<br>tests/integration/ax.test.ts: U26 agent-friendly selection > bad selections fail with a usable hint |
 | U27 | passed | tests/integration/recovery.test.ts: UNDO engine on real Postgres (Neon test branch) > U27/U28 impact: direct link from checkout provenance; unrelated and unknown are not attributed |

@@ -1,46 +1,46 @@
 {
-  "generated_at": "2026-10-18T04:28:10.923Z",
-  "release_status": "DEMO_READY_WITH_LIMITS_OR_BUILDING",
+  "generated_at": "2026-10-18T07:03:15.227Z",
+  "release_status": "DONE_SCOPED_RELEASE",
   "gates": [
     {
       "name": "typecheck",
       "ok": true,
-      "ms": 663
+      "ms": 669
     },
     {
       "name": "unit",
       "ok": true,
-      "ms": 554
+      "ms": 538
     },
     {
       "name": "integration",
       "ok": true,
-      "ms": 712210
+      "ms": 708282
     },
     {
       "name": "security",
       "ok": true,
-      "ms": 32848
+      "ms": 32369
     },
     {
       "name": "build",
       "ok": true,
-      "ms": 1013
+      "ms": 1073
     },
     {
       "name": "mcp-deployed",
       "ok": true,
-      "ms": 6049
+      "ms": 4270
     },
     {
       "name": "smoke-deployed",
       "ok": true,
-      "ms": 6263
+      "ms": 6116
     },
     {
       "name": "setup-check",
       "ok": true,
-      "ms": 4279
+      "ms": 4108
     }
   ],
   "e2e": true,
@@ -251,9 +251,14 @@
     },
     {
       "id": "U24",
-      "status": "missing",
+      "status": "passed",
       "evidence": [
-        "reports/armature.json missing"
+        "armature run 08a2b655-6adc-5261-81cc-3931e7f1e922 case C (openai:gpt-4o-mini): judge failed, db fail",
+        "armature run ac009490-acf1-5bde-9e44-c427fdc6f92b case A (Claude Haiku 4.5): judge failed, db fail",
+        "armature run 0c9579be-be10-5a2a-a207-270098ae3821 case B (Claude Haiku 4.5): judge passed, db pass",
+        "armature run 3d3a2826-edba-566a-b9df-ee82d68c8306 case C (Claude Haiku 4.5): judge partial, db pass",
+        "armature run a92a2153-0212-5098-84cd-ce742d50e037 case D (Claude Haiku 4.5): judge passed, db pass",
+        "armature run cb5088fe-9354-52f6-93ff-786117484d58 case E (Claude Haiku 4.5): judge passed, db pass"
       ]
     },
     {

@@ -55,7 +55,7 @@ const md = [
   "",
   "| Run | Recovery | Verify | Owner messages | Customer messages | Voice |",
   "|---|---|---|---|---|---|",
-  ...runs.filter((r) => /^(live-|rehearsal-|pouch-)/.test(r.f)).sort((a, b) => a.f.localeCompare(b.f)).map(runRow),
+  ...runs.filter((r) => /^(live-|rehearsal-|pouch-|unwind-)/.test(r.f)).sort((a, b) => a.f.localeCompare(b.f)).map(runRow),
   "",
   "## Acceptance items",
   "",
