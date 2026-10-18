@@ -33,7 +33,7 @@ const server = new MCPServer({
     "Select changes by their recorded labels (e.g. 'premium', 'clearance', 'navigation'). Never invent before-values or inverses.",
     "A later edit to a recorded component is a conflict: ask the owner whether to keep the current value, then re-preview with keep_current_change_ids.",
     "Gift promotions (start_gift_promotion) are purchase-aware: recovery retires the offer for new orders, releases only units the campaign still holds, and keeps every accepted order's gift committed. Never try to release or reclaim committed units.",
-    "If undo_apply returns stale_dependency_state, an order changed the counts after preview: get the owner's confirmation of the fresh plan it returns; never force or reuse the old approval.",
+    "If undo_apply returns stale_dependency_state, an order changed the counts after preview and nothing was written: use the fresh plan it returns (owner confirmation of its plan_hash, unless the store's standing grant covers it); never force or reuse the old approval.",
   ].join(" "),
   websiteUrl: BASE_URL,
   icons: [{ src: "icon.svg", mimeType: "image/svg+xml", sizes: ["512x512"] }],
