@@ -222,7 +222,7 @@ async function resolveSelection(tx: Tx, storeId: string, input: PreviewInput) {
         "invalid_input",
         open.length ? "More than one rollout could match; pass rollout_id" : "No executed rollout has recoverable changes",
         { candidates: open.map((r) => ({ rollout_id: r.id, goal: r.goal, executed_at: new Date(r.executed_at).toISOString() })) },
-        "pick the rollout_id whose goal matches the owner's request",
+        open.length ? "pick the rollout_id whose goal matches the owner's request" : "nothing is left to recover; call undo_history to see earlier recoveries, or undo_verify for their receipts",
       );
     }
     rolloutId = open[0].id as string;
