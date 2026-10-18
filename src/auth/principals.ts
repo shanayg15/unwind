@@ -16,7 +16,8 @@ export interface Principal {
 
 export function bearerFrom(header: string | null | undefined): string | null {
   if (!header) return null;
-  const m = /^Bearer\s+([A-Za-z0-9_\-.~+/=]{16,200})$/.exec(header.trim());
+  // "Bearer" per RFC 6750; "Token" because some MCP clients (e.g. Armature's bearer profile) send that scheme.
+  const m = /^(?:Bearer|Token)\s+([A-Za-z0-9_\-.~+/=]{16,200})$/i.exec(header.trim());
   return m ? m[1] : null;
 }
 

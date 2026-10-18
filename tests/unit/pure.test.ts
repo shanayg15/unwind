@@ -26,7 +26,9 @@ describe("pure helpers", () => {
   });
   it("parses only well-formed bearer headers", () => {
     expect(bearerFrom("Bearer undo_agen_abcdefghijklmnopqrstu")).toBe("undo_agen_abcdefghijklmnopqrstu");
+    expect(bearerFrom("Token undo_agen_abcdefghijklmnopqrstu")).toBe("undo_agen_abcdefghijklmnopqrstu");
     expect(bearerFrom("Basic abc")).toBeNull();
+    expect(bearerFrom("Basic dW5kb19hZ2VuX2FiY2RlZmdoaWprbG1ub3BxcnN0dQ==")).toBeNull();
     expect(bearerFrom("Bearer short")).toBeNull();
     expect(bearerFrom(undefined)).toBeNull();
   });
