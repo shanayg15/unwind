@@ -24,7 +24,8 @@ export const BRIEF = `Weekend launch brief (owner-approved plan to propose):
 - Promotional copy: on each of the four premium products, replace the promotional copy with a line starting "Weekend Premium Event: 10% off". On the Linen Camp Shirt, use a line starting "Clearance: an extra 20% off".
 - Homepage: premium tile title "Weekend Premium Event" (subtitle "10% off technical layers, this weekend only", link /collections/premium); clearance tile title "Clearance: extra 20% off" (subtitle "Summer gear, final markdowns", link /collections/clearance).
 - Navigation: items New arrivals (/collections/premium), Premium (/collections/premium), Clearance (/collections/clearance), Size guide (/size-guide); title "Main navigation", link "/".
-- Do not change the Canvas Market Tote or any sizing information.`;
+- Do not change the Canvas Market Tote or any sizing information.
+- Do not set atomic_group on any change: each price, copy, tile and the navigation are independent components here.`;
 
 export const POUCH_BRIEF = `Free-pouch experiment brief (owner-approved plan to propose):
 - Gift offer: one free Packable Travel Pouch with any order that includes a premium item, capped at 10 accepted gifts (set aside 10 pouches). Title "Free travel pouch". Terms: "One free Packable Travel Pouch with any order that includes a premium item, while the 10 set aside last. One per order. Test store: no payment is taken."
